@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ICC Trading Journal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0f1218;--card:#181d26;--line:#283041;--txt:#e6e9ef;--mut:#8b94a7;--g:#22c55e;--r:#ef4444;--a:#f5b942;--b:#4f8cff}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0}h1 span{color:var(--a)}h2{font-size:16px;margin:0 0 10px}
+main{max-width:1200px;margin:auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+button{background:#232b3a;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px}
+button.pri{background:var(--b);border-color:var(--b)}button.del{color:var(--r)}button:hover{filter:brightness(1.2)}
+input,select,textarea{width:100%;background:#0f1320;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px}
+label{font-size:12px;color:var(--mut);display:block}label>*{margin-top:4px}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.stat{background:#11151e;border:1px solid var(--line);border-radius:10px;padding:10px}.stat b{display:block;font-size:20px;margin-top:4px}
+.pos{color:var(--g)}.neg{color:var(--r)}.chk{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0}.chk label{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--txt)}.chk input{width:auto;margin:0}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--mut);font-weight:500}
+.scroll{overflow-x:auto}.row{display:flex;gap:8px;flex-wrap:wrap}.hint{color:var(--mut);text-align:center;padding:24px}
+.tag{padding:2px 6px;border-radius:6px;background:#232b3a;font-size:12px}canvas{width:100%;height:240px}
+.bd{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.hidden{display:none}
+</style></head><body>
+<header><h1>📒 ICC <span>Trading Journal</span></h1>
+<div class="row"><button class="pri" onclick="openForm()">+ Add trade</button><button onclick="exportCSV()">Export CSV</button><button onclick="exportJSON()">Export backup (JSON)</button><button onclick="document.getElementById('imp').click()">Import backup</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJSON(this)"></div></header>
+<main><div id="warn" class="card hidden" style="border-color:var(--a);color:var(--a)">Warning: this view blocks saving, so trades will be lost when closed. Open the journal directly in Chrome or Safari, or use Export backup.</div>
+<section class="card hidden" id="formCard"><h2 id="formTitle">New trade</h2>
+<form id="f" onsubmit="saveTrade(event)"><div class="grid">
+<label>Date & time<input type="datetime-local" name="date" required></label>
+<label>Platform / account<select name="platform" onchange="custom(this)"><option>Topstep</option><option>TradeLocker</option><option value="__c">Other…</option></select><input name="platformC" class="hidden" placeholder="Platform name"></label>
+<label>Instrument<select name="instrument" onchange="custom(this)"><option>Gold</option><option>NAS100</option><option value="__c">Other…</option></select><input name="instrumentC" class="hidden" placeholder="e.g. MGC, MNQ, EURUSD"></label>
+<label>Direction<select name="direction"><option value="Long">Long (buy)</option><option value="Short">Short (sell)</option></select></label>
+<label>Session<select name="session"><option>Asian</option><option>London</option><option>NY</option></select></label>
+<label>Entry price<input type="number" step="any" name="entry"></label>
+<label>Stop loss<input type="number" step="any" name="sl"></label>
+<label>Take profit<input type="number" step="any" name="tp"></label>
+<label>Exit price<input type="number" step="any" name="exit"></label>
+<label>Size<input type="number" step="any" name="size"></label>
+<label>Size unit<select name="unit"><option>contracts</option><option>lots</option><option>units</option></select></label>
+<label>Result in $ (profit/loss)<input type="number" step="any" name="pnl" placeholder="e.g. 150 or -80"></label>
+<label>R-multiple (blank = auto)<input type="number" step="any" name="r" placeholder="auto from entry/SL/exit"></label>
+<label>Screenshot link<input type="url" name="shot" placeholder="https://…"></label>
+</div>
+<div class="chk"><b style="font-size:13px">ICC checklist:</b><label><input type="checkbox" name="i1">Indication seen</label><label><input type="checkbox" name="i2">Correction identified</label><label><input type="checkbox" name="i3">Continuation entry</label></div>
+<div class="grid" style="grid-template-columns:1fr 1fr"><label>Setup notes<textarea name="notes" rows="3"></textarea></label><label>Emotions / mistakes<textarea name="emo" rows="3"></textarea></label></div>
+<div class="row" style="margin-top:10px"><button class="pri" type="submit">Save trade</button><button type="button" onclick="closeForm()">Cancel</button></div></form></section>
+
+<section class="card"><h2>Filters</h2><div class="grid">
+<label>Platform<select id="fPlat" onchange="render()"></select></label>
+<label>Instrument<select id="fInst" onchange="render()"></select></label>
+<label>Direction<select id="fDir" onchange="render()"><option value="">All</option><option>Long</option><option>Short</option></select></label>
+<label>From<input type="date" id="fFrom" onchange="render()"></label><label>To<input type="date" id="fTo" onchange="render()"></label>
+<label>&nbsp;<button type="button" onclick="clearF()">Clear filters</button></label></div></section>
+
+<section class="card"><h2>Stats</h2><div class="stats" id="stats"></div></section>
+<section class="card"><h2>Equity curve (running P/L in $)</h2><canvas id="eq"></canvas><div id="eqHint" class="hint hidden">Your equity curve will appear once you log trades with a $ result.</div></section>
+<section class="bd"><div class="card"><h2>By platform</h2><div id="bPlat"></div></div><div class="card"><h2>By instrument</h2><div id="bInst"></div></div><div class="card"><h2>By session</h2><div id="bSess"></div></div></section>
+<section class="card"><h2>Trades</h2><div class="scroll" id="list"></div></section>
+</main>
+<script>
+const KEY='iccJournal.v1';
+let store=null,trades=[],editId=null;
+
+function $(id){return document.getElementById(id)}
+function F(){return $('f')}
+function num(v){return v===''||v==null||!Number.isFinite(+v)?null:+v}
+function asNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)?n:null}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function money(v){const n=asNum(v);return n==null?'–':(n<0?'-$':'$')+Math.abs(n).toFixed(2)}
+function isTrade(t){return !!t&&typeof t==='object'&&!Array.isArray(t)}
+function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function cleanTrade(t){
+  if(!isTrade(t))return null;
+  const out={platform:'Other',unit:'contracts',...t};
+  out.id=out.id==null||out.id===''?newId():String(out.id);
+  for(const k of['date','platform','instrument','direction','session','unit','notes','emo','shot']){
+    if(out[k]!=null)out[k]=String(out[k]);
+  }
+  for(const k of['entry','sl','tp','exit','size','pnl','r'])out[k]=asNum(out[k]);
+  out.i1=!!out.i1;out.i2=!!out.i2;out.i3=!!out.i3;
+  return out;
+}
+function loadStore(){
+  // Reading localStorage throws in sandboxed previews. Keep going either way.
+  try{store=window.localStorage;store.getItem(KEY)}catch(e){store=null}
+  let raw=null;
+  try{raw=store?store.getItem(KEY):null}catch(e){store=null;raw=null}
+  try{
+    const parsed=JSON.parse(raw||'[]');
+    trades=Array.isArray(parsed)?parsed.map(cleanTrade).filter(Boolean):[];
+  }catch(e){trades=[]}
+}
+function persist(){
+  if(!store)return;
+  try{store.setItem(KEY,JSON.stringify(trades))}catch(e){
+    store=null;
+    const w=$('warn');if(w)w.classList.remove('hidden');
+  }
+}
+function calcR(t){
+  if(!isTrade(t))return null;
+  if(t.r!=null)return t.r;
+  const e=asNum(t.entry),s=asNum(t.sl),x=asNum(t.exit);
+  if(e==null||s==null||x==null||e===s)return null;
+  const risk=Math.abs(e-s),m=t.direction==='Long'?x-e:e-x,r=Math.round(m/risk*100)/100;
+  return Number.isFinite(r)?r:null;
+}
+function custom(sel){
+  const form=F();if(!sel||!form)return;
+  const c=form[sel.name+'C'];if(!c)return;
+  c.classList.toggle('hidden',sel.value!=='__c');
+  if(sel.name==='platform'&&sel.value==='Topstep'&&form.unit)form.unit.value='contracts';
+}
+function setSel(name,val){
+  const form=F();if(!form)return;
+  const s=form[name],c=form[name+'C'];if(!s||!c)return;
+  const v=val==null?'':String(val);
+  const has=v!==''&&v!=='__c'&&[...s.options].some(o=>o.value===v);
+  s.value=has?v:'__c';c.value=has?'':v;custom(s);
+}
+function openForm(t){
+  const form=F();if(!form)return;
+  form.reset();editId=t?t.id:null;
+  const title=$('formTitle');if(title)title.textContent=t?'Edit trade':'New trade';
+  if(t){
+    for(const k of['date','direction','session','entry','sl','tp','exit','size','unit','pnl','r','shot','notes','emo']){
+      if(form[k])form[k].value=t[k]??'';
+    }
+    form.i1.checked=!!t.i1;form.i2.checked=!!t.i2;form.i3.checked=!!t.i3;
+    setSel('platform',t.platform);setSel('instrument',t.instrument);
+  }else{
+    const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    form.date.value=d.toISOString().slice(0,16);
+    setSel('platform','Topstep');setSel('instrument','Gold');
+  }
+  const card=$('formCard');if(!card)return;
+  card.classList.remove('hidden');
+  try{card.scrollIntoView({behavior:'smooth'})}catch(e){}
+}
+function closeForm(){const card=$('formCard');if(card)card.classList.add('hidden');editId=null}
+function readForm(){
+  const f=F(),pick=n=>f[n].value==='__c'?((f[n+'C'].value||'').trim()||'Other'):f[n].value;
+  return cleanTrade({
+    id:editId||newId(),date:f.date.value,platform:pick('platform'),instrument:pick('instrument'),
+    direction:f.direction.value,session:f.session.value,entry:num(f.entry.value),sl:num(f.sl.value),
+    tp:num(f.tp.value),exit:num(f.exit.value),size:num(f.size.value),unit:f.unit.value,pnl:num(f.pnl.value),
+    r:num(f.r.value),i1:f.i1.checked,i2:f.i2.checked,i3:f.i3.checked,notes:f.notes.value,emo:f.emo.value,shot:f.shot.value
+  });
+}
+function saveTrade(e){
+  if(e)e.preventDefault();
+  const t=readForm();if(!t)return;
+  const i=trades.findIndex(x=>x&&x.id===t.id);
+  if(i>=0)trades[i]=t;else trades.push(t);
+  persist();closeForm();refreshFilters();render();
+}
+function delTrade(id){
+  if(!confirm('Delete this trade?'))return;
+  trades=trades.filter(t=>t&&t.id!==id);persist();refreshFilters();render();
+}
+function onListClick(ev){
+  const btn=ev.target&&ev.target.closest?ev.target.closest('button[data-act]'):null;
+  if(!btn)return;
+  const id=btn.getAttribute('data-id');
+  if(btn.getAttribute('data-act')==='edit'){const t=trades.find(x=>x&&x.id===id);if(t)openForm(t)}
+  else if(btn.getAttribute('data-act')==='del')delTrade(id);
+}
+function opts(sel,vals){
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All</option>'+vals.map(v=>`<option>${esc(v)}</option>`).join('');
+  sel.value=vals.includes(cur)?cur:'';
+}
+function refreshFilters(){
+  const uniq=k=>{
+    const seen=new Set(),vals=[];
+    for(const t of trades){
+      if(!isTrade(t)||t[k]==null||t[k]==='')continue;
+      const v=String(t[k]);if(seen.has(v))continue;seen.add(v);vals.push(v);
+    }
+    vals.sort((a,b)=>a.localeCompare(b));return vals;
+  };
+  opts($('fPlat'),uniq('platform'));opts($('fInst'),uniq('instrument'));
+}
+function clearF(){for(const id of['fPlat','fInst','fDir','fFrom','fTo']){const el=$(id);if(el)el.value=''}render()}
+function dayOf(t){return String(t&&t.date||'').slice(0,10)}
+function filtered(){
+  const p=$('fPlat')?$('fPlat').value:'',i=$('fInst')?$('fInst').value:'',d=$('fDir')?$('fDir').value:'',a=$('fFrom')?$('fFrom').value:'',b=$('fTo')?$('fTo').value:'';
+  return trades.filter(t=>{
+    if(!isTrade(t))return false;
+    if(p&&t.platform!==p)return false;
+    if(i&&t.instrument!==i)return false;
+    if(d&&t.direction!==d)return false;
+    const day=dayOf(t);
+    if((a||b)&&!day)return false;
+    if(a&&day<a)return false;
+    if(b&&day>b)return false;
+    return true;
+  }).sort((x,y)=>String((x&&x.date)||'').localeCompare(String((y&&y.date)||'')));
+}
+function outcome(t){const v=asNum(t&&t.pnl);const n=v!=null?v:calcR(t);return n==null?0:Math.sign(n)}
+function stats(list){
+  const rows=Array.isArray(list)?list.filter(isTrade):[];
+  const n=rows.length,w=rows.filter(t=>outcome(t)>0).length,l=rows.filter(t=>outcome(t)<0).length;
+  const p=rows.map(t=>asNum(t.pnl)).filter(v=>v!=null),rs=rows.map(calcR).filter(v=>v!=null);
+  const gw=p.filter(v=>v>0).reduce((a,b)=>a+b,0),gl=-p.filter(v=>v<0).reduce((a,b)=>a+b,0);
+  return{n,w,l,wr:w+l?w/(w+l)*100:null,total:p.reduce((a,b)=>a+b,0),avgR:rs.length?rs.reduce((a,b)=>a+b,0)/rs.length:null,pf:gl?gw/gl:(gw?Infinity:null),best:p.length?Math.max(...p):null,worst:p.length?Math.min(...p):null};
+}
+function breakdown(el,list,key){
+  if(!el)return;
+  const g={};
+  list.forEach(t=>{if(!isTrade(t))return;const k=t[key]==null||t[key]===''?'—':String(t[key]);(g[k]??=[]).push(t)});
+  const ks=Object.keys(g);
+  el.innerHTML=ks.length?'<table><tr><th></th><th>Trades</th><th>Win %</th><th>P/L</th><th>Avg R</th></tr>'+ks.map(k=>{const s=stats(g[k]);return`<tr><td>${esc(k)}</td><td>${s.n}</td><td>${s.wr==null?'–':s.wr.toFixed(0)+'%'}</td><td class="${s.total<0?'neg':'pos'}">${money(s.total)}</td><td>${s.avgR==null?'–':s.avgR.toFixed(2)}</td></tr>`}).join('')+'</table>':'<div class="hint">No trades yet.</div>';
+}
+function numText(v){const n=asNum(v);return n==null?'–':esc(String(n))}
+function shotLink(url){
+  const u=String(url||'');
+  if(!/^https?:\/\//i.test(u))return '';
+  return ` <a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--b)">📷</a>`;
+}
+function rowHtml(t){
+  const r=calcR(t);
+  const dir=t.direction==='Long'?'pos':t.direction==='Short'?'neg':'';
+  const notes=String(t.notes||''),emo=String(t.emo||'');
+  return `<tr><td>${esc(String(t.date||'').replace('T',' '))}</td><td><span class="tag">${esc(t.platform||'')}</span></td><td>${esc(t.instrument||'')}</td><td class="${dir}">${esc(t.direction||'')}</td><td>${esc(t.session||'')}</td><td>${numText(t.entry)}</td><td>${numText(t.sl)}</td><td>${numText(t.exit)}</td><td>${t.size==null?'–':esc(t.size+' '+(t.unit||''))}</td><td class="${asNum(t.pnl)<0?'neg':asNum(t.pnl)>0?'pos':''}">${money(t.pnl)}</td><td>${r==null?'–':esc(r+'R')}</td><td>${[t.i1,t.i2,t.i3].map(x=>x?'✅':'⬜').join('')}</td><td title="${esc(notes+' | '+emo)}">${esc(notes.slice(0,30))}${shotLink(t.shot)}</td><td><button type="button" data-act="edit" data-id="${esc(t.id)}">Edit</button> <button type="button" class="del" data-act="del" data-id="${esc(t.id)}">✕</button></td></tr>`;
+}
+function render(){
+  const list=filtered(),s=stats(list);
+  const box=(k,v,c='')=>`<div class="stat"><span style="font-size:12px;color:var(--mut)">${k}</span><b class="${c}">${v}</b></div>`;
+  const statsEl=$('stats');
+  if(statsEl)statsEl.innerHTML=box('Total trades',s.n)+box('Win rate',s.wr==null?'–':s.wr.toFixed(1)+'%')+box('Total P/L',money(s.total),s.total<0?'neg':s.total>0?'pos':'')+box('Average R',s.avgR==null?'–':s.avgR.toFixed(2)+'R')+box('Profit factor',s.pf==null?'–':s.pf===Infinity?'∞':s.pf.toFixed(2))+box('Best trade',money(s.best),'pos')+box('Worst trade',money(s.worst),'neg')+box('Wins / Losses',s.w+' / '+s.l);
+  breakdown($('bPlat'),list,'platform');breakdown($('bInst'),list,'instrument');breakdown($('bSess'),list,'session');
+  const host=$('list');
+  if(host){
+    if(!list.length)host.innerHTML='<div class="hint">No trades yet. Click <b>+ Add trade</b> to log your first ICC setup. 🚀</div>';
+    else{
+      const rows=[];
+      for(const t of list.slice().reverse()){
+        try{rows.push(rowHtml(t))}catch(e){rows.push('<tr><td colspan="14">Could not display this trade.</td></tr>')}
+      }
+      host.innerHTML='<table><tr><th>Date</th><th>Platform</th><th>Instr.</th><th>Dir</th><th>Session</th><th>Entry</th><th>SL</th><th>Exit</th><th>Size</th><th>P/L</th><th>R</th><th>ICC</th><th>Notes</th><th></th></tr>'+rows.join('')+'</table>';
+    }
+  }
+  drawEq(list);
+}
+function drawEq(list){
+  const c=$('eq'),hint=$('eqHint');if(!c||!hint)return;
+  const pts=[0];
+  for(const t of Array.isArray(list)?list:[]){
+    const n=asNum(t&&t.pnl);if(n!=null)pts.push(pts[pts.length-1]+n);
+  }
+  const show=pts.length>1;
+  hint.classList.toggle('hidden',show);c.classList.toggle('hidden',!show);
+  if(!show)return;
+  const dpr=window.devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;
+  if(W<2||H<2)return;
+  c.width=Math.floor(W*dpr);c.height=Math.floor(H*dpr);
+  const x=c.getContext('2d');if(!x)return;
+  x.setTransform(dpr,0,0,dpr,0,0);
+  const mn=Math.min(...pts),mx=Math.max(...pts),pad=30,sx=i=>pad+i*(W-2*pad)/(pts.length-1),sy=v=>H-pad-(v-mn)*(H-2*pad)/((mx-mn)||1);
+  x.strokeStyle='#283041';x.beginPath();x.moveTo(pad,sy(0));x.lineTo(W-pad,sy(0));x.stroke();
+  x.fillStyle='#8b94a7';x.font='11px sans-serif';x.fillText(money(mx),2,sy(mx)-4);x.fillText(money(mn),2,sy(mn)+12);
+  x.strokeStyle=pts[pts.length-1]>=0?'#22c55e':'#ef4444';x.lineWidth=2;x.beginPath();
+  pts.forEach((v,i)=>i?x.lineTo(sx(i),sy(v)):x.moveTo(sx(i),sy(v)));x.stroke();
+}
+function dl(name,text,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type}));
+  a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+function exportJSON(){dl('trading-journal-backup.json',JSON.stringify(trades,null,2),'application/json')}
+function exportCSV(){
+  const cols=['date','platform','instrument','direction','session','entry','sl','tp','exit','size','unit','pnl','r','i1','i2','i3','notes','emo','shot'];
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  dl('trading-journal.csv',[cols.join(',')].concat(trades.map(t=>cols.map(k=>q(k==='r'?calcR(t):t[k])).join(','))).join('\n'),'text/csv');
+}
+function importJSON(inp){
+  const file=inp&&inp.files&&inp.files[0];if(!file)return;
+  file.text().then(s=>{
+    let data;
+    try{data=JSON.parse(s)}catch(e){alert('That file is not a valid journal backup.');return}
+    if(!Array.isArray(data)){alert('That file is not a valid journal backup.');return}
+    const next=data.map(cleanTrade).filter(Boolean);
+    if(!next.length&&data.length){alert('That file is not a valid journal backup.');return}
+    if(!confirm(`Import ${next.length} trades? This replaces current data.`))return;
+    trades=next;persist();refreshFilters();render();
+  }).catch(()=>{alert('That file is not a valid journal backup.')}).finally(()=>{inp.value=''});
+}
+function boot(){
+  const list=$('list');if(list)list.addEventListener('click',onListClick);
+  try{loadStore()}catch(e){store=null;trades=[]}
+  if(!store){const w=$('warn');if(w)w.classList.remove('hidden')}
+  window.addEventListener('resize',()=>{try{drawEq(filtered())}catch(e){}});
+  try{refreshFilters();render()}catch(e){
+    const host=$('list');
+    if(host&&!host.childElementCount)host.innerHTML='<div class="hint">No trades yet. Click <b>+ Add trade</b> to log your first ICC setup. 🚀</div>';
+  }
+}
+boot();
+</script></body></html>
