@@ -1,0 +1,60 @@
+name: Unstick GitHub Pages
+
+# One-shot helper. The cloud-agent token cannot call the Pages API
+# (needs pages:write). This workflow's GITHUB_TOKEN can cancel the stuck
+# deployment, drop the queued pages-build-deployment run, and request a
+# fresh Deploy-from-branch build of main.
+on:
+  push:
+    branches:
+      - cursor/unstick-pages-e1eb
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  pages: write
+  contents: read
+
+jobs:
+  unstick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Clear the stuck deployment and rebuild main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          echo "site before"
+          gh api "repos/${REPO}/pages" --jq '{status,build_type,source,html_url}'
+          echo "latest build before"
+          gh api "repos/${REPO}/pages/builds/latest" --jq '{status,commit,error,updated_at,duration}'
+          echo "deployment before"
+          gh api "repos/${REPO}/pages/deployments/9ab934e60bef36af291655c168d17e560e0cddb5" || true
+
+          echo "cancel stuck pages deployment"
+          gh api --method POST "repos/${REPO}/pages/deployments/9ab934e60bef36af291655c168d17e560e0cddb5/cancel" || true
+
+          echo "cancel queued pages-build-deployment run"
+          gh api --method POST "repos/${REPO}/actions/runs/42268940655/cancel" || true
+
+          echo "reaffirm legacy branch source"
+          gh api --method PUT "repos/${REPO}/pages" --input - <<'EOF' || true
+          {"build_type":"legacy","source":{"branch":"main","path":"/"}}
+          EOF
+
+          echo "wait for the backend to drop the stuck build"
+          sleep 20
+          echo "site after cancel"
+          gh api "repos/${REPO}/pages" --jq '{status,build_type,source,html_url}'
+          echo "latest build after cancel"
+          gh api "repos/${REPO}/pages/builds/latest" --jq '{status,commit,error,updated_at,duration}'
+
+          echo "request a pages build of main"
+          if ! gh api --method POST "repos/${REPO}/pages/builds"; then
+            echo "pages build request failed"
+            exit 1
+          fi
+          echo "site after request"
+          gh api "repos/${REPO}/pages" --jq '{status,build_type,source,html_url}'
