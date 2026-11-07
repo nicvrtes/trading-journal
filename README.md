@@ -12,3 +12,11 @@ Fifteen gold trades from the handwritten notebook (25 Nov 2025, 27 Nov 2025, and
 - If this browser already has a saved journal, those trades are left alone, even when the list is empty. Click **Import notebook trades** to add the notebook ones. Each notebook trade has a fixed id, so the button adds only the ones that are missing. It does not delete trades, it does not overwrite a notebook trade you edited, and clicking it again does not create duplicates.
 - **Import backup** still replaces the whole journal. Use that only for a JSON backup file.
 - Feelings are in **Emotions / mistakes**. Duration, market notes, and ICC notes are in **Setup notes**. Session is Asian only when the notebook said Asia. Account is **Topstep O** or **Topstep N** only when the page was marked O or N. Direction is **Unknown** for 8 Apr 2026, because the notebook says that day was either a short or a bad long.
+
+## Setups tab
+
+The same page has two tabs: **Journal** and **Setups**.
+
+Setups is a gold chart (Yahoo Finance GC=F) with session levels and an ICC checklist. It is analysis only, not trading advice. It does not tell you to buy or sell, and it never suggests a position size or a percent of an account to risk. Prices can be about 10 minutes delayed. Times are Eastern Time.
+
+The journal, including the notebook gold trades, works the same way as before.

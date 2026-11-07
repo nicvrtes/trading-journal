@@ -20,10 +20,35 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 .scroll{overflow-x:auto}.row{display:flex;gap:8px;flex-wrap:wrap}.hint{color:var(--mut);text-align:center;padding:24px}
 .tag{padding:2px 6px;border-radius:6px;background:#232b3a;font-size:12px}canvas{width:100%;height:240px}
 .bd{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.hidden{display:none}
+.brand{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab.on{background:var(--a);border-color:var(--a);color:#1a1408;font-weight:650}
+#goldChart{width:100%;height:420px;background:#11151e;border-radius:10px;display:block}
+.disc{border-color:var(--a);background:#2a220f;line-height:1.45}
+.disc b{color:var(--a)}
+.asian-live{border-color:var(--a);background:#2a220f}
+.lv{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.lv:last-child{border-bottom:0}
+.lv b{white-space:nowrap}
+.step{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line)}
+.step:last-child{border-bottom:0}
+.step b{display:block;margin-bottom:4px}
+.pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650}
+.pill.wait{background:#232b3a;color:var(--mut)}
+.pill.work{background:#3a2e12;color:var(--a)}
+.pill.met{background:#14301f;color:var(--g)}
+.sub{color:var(--mut);font-size:13px;line-height:1.45}
+.stand{border-color:var(--a);font-size:16px;line-height:1.45}
+#pxLine{font-size:28px;font-weight:750;margin:6px 0 2px;letter-spacing:.2px}
 </style></head><body>
-<header><h1>📒 ICC <span>Trading Journal</span></h1>
-<div class="row"><button class="pri" onclick="openForm()">+ Add trade</button><button onclick="exportCSV()">Export CSV</button><button onclick="exportJSON()">Export backup (JSON)</button><button onclick="document.getElementById('imp').click()">Import backup</button><button id="importNotebook" type="button" title="Adds the gold trades from your notebook. Trades you already saved are kept.">Import notebook trades</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJSON(this)"></div></header>
-<main><div id="warn" class="card hidden" style="border-color:var(--a);color:var(--a)">Warning: this view blocks saving, so trades will be lost when closed. Open the journal directly in Chrome or Safari, or use Export backup.</div>
+<header>
+<div class="brand"><h1>📒 ICC <span>Trading Journal</span></h1>
+<nav class="tabs" role="tablist" aria-label="Sections">
+<button type="button" class="tab on" id="tabJournal" role="tab" aria-selected="true" aria-controls="viewJournal">Journal</button>
+<button type="button" class="tab" id="tabSetups" role="tab" aria-selected="false" aria-controls="viewSetups">Setups</button>
+</nav></div>
+<div class="row" id="journalActions"><button class="pri" onclick="openForm()">+ Add trade</button><button onclick="exportCSV()">Export CSV</button><button onclick="exportJSON()">Export backup (JSON)</button><button onclick="document.getElementById('imp').click()">Import backup</button><button id="importNotebook" type="button" title="Adds the gold trades from your notebook. Trades you already saved are kept.">Import notebook trades</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJSON(this)"></div></header>
+<main><div id="viewJournal" role="tabpanel" aria-labelledby="tabJournal"><div id="warn" class="card hidden" style="border-color:var(--a);color:var(--a)">Warning: this view blocks saving, so trades will be lost when closed. Open the journal directly in Chrome or Safari, or use Export backup.</div>
 <section class="card hidden" id="formCard"><h2 id="formTitle">New trade</h2>
 <form id="f" onsubmit="saveTrade(event)"><div class="grid">
 <label>Date & time<input type="datetime-local" name="date" required></label>
@@ -56,6 +81,32 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 <section class="card"><h2>Equity curve (running P/L in $)</h2><canvas id="eq"></canvas><div id="eqHint" class="hint hidden">Your equity curve will appear once you log trades with a $ result.</div></section>
 <section class="bd"><div class="card"><h2>By platform</h2><div id="bPlat"></div></div><div class="card"><h2>By instrument</h2><div id="bInst"></div></div><div class="card"><h2>By session</h2><div id="bSess"></div></div></section>
 <section class="card"><h2>Trades</h2><p style="color:var(--mut);font-size:13px;margin:0 0 10px">Notebook gold trades show up on their own the first time this browser has no saved journal. If you already have trades, <b>Import notebook trades</b> adds the missing ones and leaves yours in place.</p><div class="scroll" id="list"></div></section>
+</div>
+<div id="viewSetups" class="hidden" role="tabpanel" aria-labelledby="tabSetups">
+<section class="card disc"><b>Analysis only, not trading advice.</b> This tab studies the gold chart. It does not tell you to buy or sell, and it never suggests how large a position to take or what percent of an account to risk. Prices can be about 10 minutes behind the real market. All times are Eastern Time.</section>
+<section class="card" id="asianBanner"></section>
+<section class="card">
+<div class="row" style="justify-content:space-between;align-items:flex-start">
+<div><h2 style="margin:0">Gold · GC=F</h2><div id="pxLine">Loading gold prices…</div><div id="pxSub" class="sub"></div></div>
+<div class="row" role="group" aria-label="Chart timeframe">
+<button type="button" class="tab on" id="tf1h" aria-pressed="true">1H</button>
+<button type="button" class="tab" id="tf15" aria-pressed="false">15m</button>
+<button type="button" class="tab" id="tf5" aria-pressed="false">5m</button>
+<button type="button" id="tfRefresh">Refresh</button>
+</div></div>
+<canvas id="goldChart" width="800" height="420" aria-label="Gold futures candlestick chart"></canvas>
+<div id="chartLegend" class="sub" style="margin-top:8px"></div>
+<div id="chartErr" class="sub"></div>
+</section>
+<div class="bd">
+<section class="card"><h2>Key levels</h2><div id="levelList" class="sub">Levels show up when prices load.</div></section>
+<section class="card"><h2>ICC checklist</h2>
+<p class="sub">Indication, correction, continuation. Indication is a strong 1-hour or 4-hour push that closes beyond an older swing. Correction is a pullback that can sweep a high or low but does not close beyond the structure point. Continuation is a break of that level, a retest, then an engulfing candle that has closed on the 15-minute or 5-minute chart. A candle that is still forming does not count.</p>
+<div id="iccBox"></div></section>
+</div>
+<section class="card stand hidden" id="standBox"></section>
+<section class="card" id="watchBox"></section>
+</div>
 </main>
 <script>
 const KEY='iccJournal.v1';
@@ -356,17 +407,1038 @@ function importNotebook(){
   persist();refreshFilters();render();
   alert('Added '+add.length+' gold trades from your notebook. Anything you had already saved is still here.');
 }
+/* SETUPS_PURE_START */
+// Gold chart read for the Setups tab. Analysis only. It never suggests a position size or a risk percent.
+const Setups = (() => {
+  const ET = 'America/New_York';
+  const WD = {Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6};
+  const FRESH_MS = 80 * 3600 * 1000;
+  const BREAK_MAX_MS = 7 * 24 * 3600 * 1000;
+
+  function etParts(ms) {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: ET, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short'
+    });
+    const o = {};
+    for (const part of fmt.formatToParts(new Date(ms))) o[part.type] = part.value;
+    let hh = +o.hour;
+    if (hh === 24) hh = 0;
+    const wd = WD[String(o.weekday || '').slice(0, 3)];
+    return {y: +o.year, mo: +o.month, d: +o.day, hh, mm: +o.minute, wd};
+  }
+  function etOffsetMs(utcMs) {
+    const p = etParts(utcMs);
+    const asUTC = Date.UTC(p.y, p.mo - 1, p.d, p.hh, p.mm);
+    return asUTC - (utcMs - (utcMs % 60000));
+  }
+  function etWallToUtc(y, mo, d, hh, mm) {
+    let utc = Date.UTC(y, mo - 1, d, hh, mm);
+    for (let i = 0; i < 4; i++) {
+      const next = Date.UTC(y, mo - 1, d, hh, mm) - etOffsetMs(utc);
+      if (Math.abs(next - utc) < 1000) { utc = next; break; }
+      utc = next;
+    }
+    const p = etParts(utc);
+    if (p.y === y && p.mo === mo && p.d === d && p.hh === hh && p.mm === mm) return utc;
+    for (let k = -20 * 60; k <= 20 * 60; k++) {
+      const t = utc + k * 60000;
+      const q = etParts(t);
+      if (q.y === y && q.mo === mo && q.d === d && q.hh === hh && q.mm === mm) return t;
+    }
+    return utc;
+  }
+  function addDays(y, mo, d, n) {
+    const dt = new Date(Date.UTC(y, mo - 1, d + n));
+    return {y: dt.getUTCFullYear(), mo: dt.getUTCMonth() + 1, d: dt.getUTCDate()};
+  }
+  function weekdayOf(y, mo, d) { return new Date(Date.UTC(y, mo - 1, d)).getUTCDay(); }
+  function fmtPx(n) {
+    if (!Number.isFinite(n)) return '–';
+    return (Math.round(n * 10) / 10).toFixed(1);
+  }
+  function fmtWhen(ms) {
+    if (!Number.isFinite(ms)) return '';
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: ET, weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+    }).format(new Date(ms));
+  }
+  function fmtRange(a, b) {
+    const opt = {timeZone: ET, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'};
+    const f = new Intl.DateTimeFormat('en-US', opt);
+    return f.format(new Date(a)) + ' – ' + f.format(new Date(b)) + ' ET';
+  }
+  function inAsian(ms) {
+    const p = etParts(ms);
+    if (p.wd == null) return false;
+    const mins = p.hh * 60 + p.mm;
+    if (p.wd === 0) return mins >= 18 * 60;
+    if (p.wd >= 1 && p.wd <= 4) return mins >= 18 * 60 || mins < 2 * 60;
+    if (p.wd === 5) return mins < 2 * 60;
+    return false;
+  }
+  function sessionAt(ms) {
+    const p = etParts(ms);
+    if (p.wd == null) return 'Other';
+    const mins = p.hh * 60 + p.mm;
+    if (p.wd === 6) return 'Closed';
+    if (p.wd === 0 && mins < 18 * 60) return 'Closed';
+    if (p.wd === 5 && mins >= 17 * 60) return 'Closed';
+    if (inAsian(ms)) return 'Asian';
+    if (p.wd >= 1 && p.wd <= 4 && mins >= 17 * 60 && mins < 18 * 60) return 'Break';
+    if (p.wd >= 1 && p.wd <= 5 && mins >= 2 * 60 && mins < 8 * 60) return 'London';
+    if (p.wd >= 1 && p.wd <= 5 && mins >= 8 * 60 && mins < 17 * 60) return 'NY';
+    return 'Other';
+  }
+  function sessionName(code) {
+    return {Asian: 'Asian', London: 'London', NY: 'New York', Break: 'the daily break', Closed: 'closed'}[code] || code;
+  }
+  function clockInfo(now) {
+    const name = sessionAt(now);
+    const asianOpen = name === 'Asian';
+    const detail = 'Asian session window: Sunday 6:00 PM ET through weeknights, ending at 2:00 AM ET. Those hours are shaded gold on the chart.';
+    let headline;
+    if (asianOpen) headline = 'Asian session is open right now.';
+    else if (name === 'Closed') headline = 'Asian session is closed. Gold futures are closed from Friday 5:00 PM ET until Sunday 6:00 PM ET.';
+    else if (name === 'Break') headline = 'Asian session is closed. The futures market is in the daily break, 5:00 to 6:00 PM ET.';
+    else headline = 'Asian session is closed right now. The current session is ' + sessionName(name) + '.';
+    return {asianOpen, name, headline, detail};
+  }
+  function listSessions(now) {
+    const p = etParts(now);
+    const out = [];
+    for (let back = 12; back >= -1; back--) {
+      const day = addDays(p.y, p.mo, p.d, -back);
+      const wd = weekdayOf(day.y, day.mo, day.d);
+      const next = addDays(day.y, day.mo, day.d, 1);
+      if (wd >= 1 && wd <= 5) {
+        out.push({name: 'London', start: etWallToUtc(day.y, day.mo, day.d, 2, 0), end: etWallToUtc(day.y, day.mo, day.d, 8, 0)});
+        out.push({name: 'NY', start: etWallToUtc(day.y, day.mo, day.d, 8, 0), end: etWallToUtc(day.y, day.mo, day.d, 17, 0)});
+      }
+      if (wd === 0 || (wd >= 1 && wd <= 4)) {
+        out.push({name: 'Asian', start: etWallToUtc(day.y, day.mo, day.d, 18, 0), end: etWallToUtc(next.y, next.mo, next.d, 2, 0)});
+      }
+    }
+    return out.filter(s => s.end > s.start).sort((a, b) => a.start - b.start);
+  }
+  function priorAsian(now) {
+    const done = listSessions(now).filter(s => s.name === 'Asian' && s.end <= now);
+    return done.length ? done[done.length - 1] : null;
+  }
+  function previousSession(now) {
+    const done = listSessions(now).filter(s => s.end <= now);
+    return done.length ? done[done.length - 1] : null;
+  }
+  function weekWindow(now) {
+    const p = etParts(now);
+    let y = p.y, mo = p.mo, d = p.d, guard = 0;
+    while (weekdayOf(y, mo, d) !== 0 && guard++ < 8) {
+      const prev = addDays(y, mo, d, -1);
+      y = prev.y; mo = prev.mo; d = prev.d;
+    }
+    let start = etWallToUtc(y, mo, d, 18, 0);
+    if (start > now) {
+      const prevSun = addDays(y, mo, d, -7);
+      y = prevSun.y; mo = prevSun.mo; d = prevSun.d;
+      start = etWallToUtc(y, mo, d, 18, 0);
+    }
+    const fri = addDays(y, mo, d, 5);
+    return {start, end: etWallToUtc(fri.y, fri.mo, fri.d, 17, 0)};
+  }
+  function shiftWindow(w, days) {
+    const s = etParts(w.start), e = etParts(w.end);
+    const sd = addDays(s.y, s.mo, s.d, days), ed = addDays(e.y, e.mo, e.d, days);
+    return {start: etWallToUtc(sd.y, sd.mo, sd.d, s.hh, s.mm), end: etWallToUtc(ed.y, ed.mo, ed.d, e.hh, e.mm)};
+  }
+  function windows(now) {
+    const week = weekWindow(now);
+    return {session: sessionAt(now), asian: priorAsian(now), previous: previousSession(now), week, prevWeek: shiftWindow(week, -7)};
+  }
+  function fourHourBucket(ms) {
+    const p = etParts(ms);
+    const h = p.hh;
+    let sh, eh, startShift = 0;
+    if (h >= 18 && h < 22) { sh = 18; eh = 22; }
+    else if (h >= 22) { sh = 22; eh = 2; }
+    else if (h < 2) { sh = 22; eh = 2; startShift = -1; }
+    else if (h < 6) { sh = 2; eh = 6; }
+    else if (h < 10) { sh = 6; eh = 10; }
+    else if (h < 14) { sh = 10; eh = 14; }
+    else if (h < 17) { sh = 14; eh = 17; }
+    else return null;
+    const sDay = startShift ? addDays(p.y, p.mo, p.d, startShift) : {y: p.y, mo: p.mo, d: p.d};
+    const eDay = eh > sh ? sDay : addDays(sDay.y, sDay.mo, sDay.d, 1);
+    const start = etWallToUtc(sDay.y, sDay.mo, sDay.d, sh, 0);
+    const end = etWallToUtc(eDay.y, eDay.mo, eDay.d, eh, 0);
+    if (!(end > start)) return null;
+    return {start, end};
+  }
+  function build4h(candles, now) {
+    const groups = new Map();
+    const sorted = (candles || []).slice().sort((a, b) => a.t - b.t);
+    for (const c of sorted) {
+      const b = fourHourBucket(c.t);
+      if (!b) continue;
+      let g = groups.get(b.start);
+      if (!g) g = groups.set(b.start, {t: b.start, end: b.end, o: c.o, h: c.h, l: c.l, c: c.c, closed: b.end <= now}).get(b.start);
+      g.h = Math.max(g.h, c.h);
+      g.l = Math.min(g.l, c.l);
+      g.c = c.c;
+      g.closed = b.end <= now;
+    }
+    return [...groups.values()].sort((a, b) => a.t - b.t);
+  }
+  function intervalMs(iv) { return iv === '1h' ? 3600000 : iv === '15m' ? 900000 : 300000; }
+  function parseCandles(json, step, now) {
+    const r = json && json.chart && json.chart.result && json.chart.result[0];
+    if (!r || !r.timestamp || !r.indicators || !r.indicators.quote || !r.indicators.quote[0]) return {candles: [], meta: null};
+    const q = r.indicators.quote[0];
+    const candles = [];
+    for (let i = 0; i < r.timestamp.length; i++) {
+      const o = +q.open[i], h = +q.high[i], l = +q.low[i], c = +q.close[i];
+      if (![o, h, l, c].every(Number.isFinite) || o <= 0 || h < l) continue;
+      const t = r.timestamp[i] * 1000;
+      if ((t % step) > 90 * 1000) continue;
+      candles.push({t, o, h, l, c, closed: t + step <= now});
+    }
+    return {candles, meta: r.meta || null};
+  }
+  function pivots(candles, wing) {
+    const out = [];
+    for (let i = wing; i < candles.length - wing; i++) {
+      let hi = true, lo = true, hiStrict = false, loStrict = false;
+      for (let k = 1; k <= wing; k++) {
+        if (candles[i].h < candles[i - k].h || candles[i].h < candles[i + k].h) hi = false;
+        if (candles[i].l > candles[i - k].l || candles[i].l > candles[i + k].l) lo = false;
+        if (candles[i].h > candles[i - k].h || candles[i].h > candles[i + k].h) hiStrict = true;
+        if (candles[i].l < candles[i - k].l || candles[i].l < candles[i + k].l) loStrict = true;
+      }
+      if (hi && lo) continue;
+      if (hi && hiStrict) out.push({i, type: 'high', price: candles[i].h, t: candles[i].t});
+      if (lo && loStrict) out.push({i, type: 'low', price: candles[i].l, t: candles[i].t});
+    }
+    return out;
+  }
+  function atrEnding(candles, idx) {
+    const a = Math.max(0, idx - 13);
+    const xs = candles.slice(a, idx + 1);
+    if (!xs.length) return 0;
+    let s = 0;
+    for (const c of xs) s += c.h - c.l;
+    return s / xs.length;
+  }
+  function impulses(closed, tf) {
+    if (closed.length < (tf === '4H' ? 12 : 20)) return [];
+    const swings = pivots(closed, 2);
+    const out = [];
+    for (let s = 0; s < swings.length; s++) {
+      const sw = swings[s];
+      const wantPrior = sw.type === 'low' ? 'high' : 'low';
+      const dir = sw.type === 'low' ? 'up' : 'down';
+      let prior = null;
+      for (let p = s - 1; p >= 0; p--) if (swings[p].type === wantPrior) { prior = swings[p]; break; }
+      if (!prior || sw.i - prior.i < 2) continue;
+      let breakI = -1;
+      for (let i = sw.i + 1; i < closed.length; i++) {
+        const c = closed[i];
+        if (dir === 'up' && c.c > prior.price && c.c > c.o) { breakI = i; break; }
+        if (dir === 'down' && c.c < prior.price && c.c < c.o) { breakI = i; break; }
+      }
+      if (breakI < 0) continue;
+      const br = closed[breakI];
+      let ext = dir === 'up' ? br.h : br.l, extT = br.t, extBar = br;
+      for (let i = breakI; i < closed.length; i++) {
+        if (dir === 'up' && closed[i].h >= ext) { ext = closed[i].h; extT = closed[i].t; extBar = closed[i]; }
+        if (dir === 'down' && closed[i].l <= ext) { ext = closed[i].l; extT = closed[i].t; extBar = closed[i]; }
+      }
+      const atr = atrEnding(closed, breakI);
+      const impulse = dir === 'up' ? ext - sw.price : sw.price - ext;
+      const beyond = dir === 'up' ? br.c - prior.price : prior.price - br.c;
+      if (!(atr > 0 && impulse >= 1.15 * atr && impulse >= sw.price * 0.0015 && beyond >= 0.25 * atr)) continue;
+      out.push({
+        dir, tf, structure: sw.price, structureT: sw.t, brokenLevel: prior.price,
+        breakT: br.t, extreme: ext, extremeT: extT, impulse, atr,
+        barMs: extBar.end && extBar.end > extBar.t ? extBar.end - extBar.t : 3600000
+      });
+    }
+    return out;
+  }
+  function lostStructure(closed, setup) {
+    for (const c of closed) {
+      if (!c.closed || c.t <= setup.structureT) continue;
+      if (setup.dir === 'up' && c.c < setup.structure) return c;
+      if (setup.dir === 'down' && c.c > setup.structure) return c;
+    }
+    return null;
+  }
+  function inspect(candles, tf, lastTime) {
+    const closed = (candles || []).filter(c => c.closed);
+    const fresh = impulses(closed, tf).filter(s => lastTime - s.extremeT <= FRESH_MS && lastTime - s.breakT <= BREAK_MAX_MS);
+    fresh.sort((a, b) => b.extremeT - a.extremeT || b.breakT - a.breakT);
+    if (!fresh.length) return null;
+    const setup = fresh[0];
+    return {setup, dead: lostStructure(closed, setup), tf, closed};
+  }
+  function choose(a, b) {
+    const xs = [a, b].filter(Boolean).sort((x, y) => y.setup.extremeT - x.setup.extremeT || y.setup.breakT - x.setup.breakT);
+    if (!xs.length) return {kind: 'none'};
+    if (xs[0].dead) return {kind: 'invalid', item: xs[0]};
+    const other = xs[1];
+    if (other && !other.dead && other.setup.dir !== xs[0].setup.dir) return {kind: 'conflict'};
+    return {kind: 'ok', item: xs[0], other: other && !other.dead ? other : null};
+  }
+  function formingPush(candles) {
+    const closed = (candles || []).filter(c => c.closed);
+    const open = (candles || []).filter(c => !c.closed).slice(-1)[0];
+    if (!open || closed.length < 20) return null;
+    const swings = pivots(closed, 2);
+    const atr = atrEnding(closed, closed.length - 1);
+    let best = null;
+    for (let s = 0; s < swings.length; s++) {
+      const sw = swings[s];
+      const want = sw.type === 'low' ? 'high' : 'low';
+      const dir = sw.type === 'low' ? 'up' : 'down';
+      let prior = null;
+      for (let p = s - 1; p >= 0; p--) if (swings[p].type === want) { prior = swings[p]; break; }
+      if (!prior) continue;
+      const room = Math.max(0.25 * atr, sw.price * 0.001);
+      const pushed = dir === 'up' ? open.h > prior.price + room : open.l < prior.price - room;
+      if (!pushed) continue;
+      if (!best || sw.t > best.t) best = {dir, t: sw.t, level: prior.price};
+    }
+    return best;
+  }
+  function correctionOf(closed, setup) {
+    const after = closed.filter(c => c.closed && c.t > setup.extremeT);
+    const up = setup.dir === 'up';
+    if (!after.length) {
+      return {status: 'not yet', note: up
+        ? 'Price is still at the high of the push. A pullback has not started.'
+        : 'Price is still at the low of the push. A pullback has not started.'};
+    }
+    let pull = up ? Infinity : -Infinity, pullT = null, swept = false, broke = null;
+    for (const c of after) {
+      if (up) {
+        if (c.c < setup.structure) broke = c;
+        else if (c.l < setup.structure) swept = true;
+        if (c.l < pull) { pull = c.l; pullT = c.t; }
+      } else {
+        if (c.c > setup.structure) broke = c;
+        else if (c.h > setup.structure) swept = true;
+        if (c.h > pull) { pull = c.h; pullT = c.t; }
+      }
+    }
+    if (broke) {
+      return {status: 'not yet', note: 'A closed candle went through the structure point at ' + fmtPx(setup.structure) + '.'};
+    }
+    const retrace = up ? setup.extreme - pull : pull - setup.extreme;
+    const frac = setup.impulse ? retrace / setup.impulse : 0;
+    const pct = Math.round(frac * 100);
+    if (frac < 0.30) {
+      const started = frac >= 0.12;
+      return {
+        status: started ? 'in progress' : 'not yet',
+        note: started
+          ? 'Price has come back about ' + pct + '% of the push. That is not a clean pullback yet.'
+          : 'Price has not come back enough to call this a pullback.'
+      };
+    }
+    let note = 'Price came back about ' + pct + '% of the push. No closed candle has gone through the structure point at ' + fmtPx(setup.structure) + '.';
+    if (swept) note += up
+      ? ' A wick went through that point and the candle closed back above it, so the structure still holds.'
+      : ' A wick went through that point and the candle closed back below it, so the structure still holds.';
+    return {status: 'met', note, pull, pullT, swept};
+  }
+  function isEngulf(prev, curr, dir) {
+    if (!prev || !curr) return false;
+    if (dir === 'up') {
+      if (!(curr.c > curr.o && prev.c < prev.o)) return false;
+    } else if (!(curr.c < curr.o && prev.c > prev.o)) return false;
+    const pLo = Math.min(prev.o, prev.c), pHi = Math.max(prev.o, prev.c);
+    const cLo = Math.min(curr.o, curr.c), cHi = Math.max(curr.o, curr.c);
+    return cLo <= pLo && cHi >= pHi && (cHi - cLo) > (pHi - pLo);
+  }
+  function readSequence(candles, afterMs, level, dir, gapMs) {
+    const closed = (candles || []).filter(c => c.closed);
+    const forming = (candles || []).filter(c => !c.closed).slice(-1)[0];
+    const buf = Math.max(level * 0.0015, 0.5);
+    let breakI = -1;
+    for (let i = 0; i < closed.length; i++) {
+      const c = closed[i];
+      if (c.t < afterMs) continue;
+      if (dir === 'up' && c.c > level) { breakI = i; break; }
+      if (dir === 'down' && c.c < level) { breakI = i; break; }
+    }
+    const formingBreak = !!(forming && forming.t >= afterMs && (dir === 'up' ? forming.c > level || forming.h > level : forming.c < level || forming.l < level));
+    if (breakI < 0) return {stage: 'none', formingBreak};
+    let retestI = -1;
+    for (let i = breakI + 1; i < closed.length; i++) {
+      const c = closed[i];
+      if (dir === 'up' && c.l <= level + buf && c.c > level) { retestI = i; break; }
+      if (dir === 'down' && c.h >= level - buf && c.c < level) { retestI = i; break; }
+    }
+    if (retestI < 0) return {stage: 'break', formingBreak};
+    for (let i = retestI; i < closed.length; i++) {
+      const prev = i > 0 ? closed[i - 1] : null;
+      const curr = closed[i];
+      if (!prev || curr.t - prev.t > gapMs) continue;
+      const sideOk = dir === 'up' ? curr.c > level : curr.c < level;
+      if (sideOk && isEngulf(prev, curr, dir)) return {stage: 'engulf', engT: curr.t};
+    }
+    let formingEngulf = false;
+    if (forming && forming.t >= closed[retestI].t) {
+      const prev = closed[closed.length - 1];
+      if (prev && forming.t > prev.t && forming.t - prev.t <= gapMs) {
+        const sideOk = dir === 'up' ? forming.c > level : forming.c < level;
+        if (sideOk && isEngulf(prev, forming, dir)) formingEngulf = true;
+      }
+    }
+    return {stage: 'retest', formingEngulf};
+  }
+  function rangeOf(candles, start, end) {
+    let high = -Infinity, low = Infinity, n = 0;
+    for (const c of candles || []) {
+      if (c.t < start || c.t >= end) continue;
+      if (c.h > high) high = c.h;
+      if (c.l < low) low = c.l;
+      n++;
+    }
+    return n ? {high, low, n} : null;
+  }
+  function roundLevels(price, lo, hi) {
+    const step = 100;
+    if (!Number.isFinite(price)) return [];
+    const below = Math.floor(price / step) * step;
+    const above = Math.abs(price - below) < 1e-6 ? below + step : below + step;
+    const set = new Set([below, above]);
+    const spanLo = Number.isFinite(lo) ? lo : price;
+    const spanHi = Number.isFinite(hi) ? hi : price;
+    const from = Math.ceil(spanLo / step) * step;
+    const to = Math.floor(spanHi / step) * step;
+    for (let x = from; x <= to; x += step) if (Math.abs(x - price) <= 200) set.add(x);
+    return [...set].filter(x => x > 0).sort((a, b) => a - b);
+  }
+  function levelRow(key, label, detail, price) {
+    return {key, label, detail, price: Number.isFinite(price) ? price : null};
+  }
+  function buildLevels(candles, now) {
+    const w = windows(now);
+    const rows = [];
+    const asian = w.asian;
+    const prev = w.previous;
+    const same = !!(asian && prev && asian.start === prev.start);
+    if (asian) {
+      const rg = rangeOf(candles, asian.start, asian.end);
+      const detail = (same ? 'Also the previous session. ' : '') + fmtRange(asian.start, asian.end);
+      rows.push(levelRow('asian', 'Prior Asian high', detail, rg && rg.high));
+      rows.push(levelRow('asian', 'Prior Asian low', detail, rg && rg.low));
+    }
+    if (prev && !same) {
+      const rg = rangeOf(candles, prev.start, prev.end);
+      const detail = sessionName(prev.name) + ' session. ' + fmtRange(prev.start, prev.end);
+      rows.push(levelRow('session', 'Previous session high', detail, rg && rg.high));
+      rows.push(levelRow('session', 'Previous session low', detail, rg && rg.low));
+    }
+    const weekRg = rangeOf(candles, w.week.start, w.week.end);
+    const prevRg = rangeOf(candles, w.prevWeek.start, w.prevWeek.end);
+    rows.push(levelRow('week', 'This week high', fmtRange(w.week.start, w.week.end), weekRg && weekRg.high));
+    rows.push(levelRow('week', 'This week low', fmtRange(w.week.start, w.week.end), weekRg && weekRg.low));
+    rows.push(levelRow('prevWeek', 'Last week high', fmtRange(w.prevWeek.start, w.prevWeek.end), prevRg && prevRg.high));
+    rows.push(levelRow('prevWeek', 'Last week low', fmtRange(w.prevWeek.start, w.prevWeek.end), prevRg && prevRg.low));
+    const last = candles.length ? candles[candles.length - 1].c : null;
+    const bounds = [...(weekRg ? [weekRg.low, weekRg.high] : []), ...(prevRg ? [prevRg.low, prevRg.high] : [])];
+    const lo = bounds.length ? Math.min(...bounds) : last;
+    const hi = bounds.length ? Math.max(...bounds) : last;
+    for (const x of roundLevels(last, lo, hi)) {
+      rows.push(levelRow('round', 'Round number', 'Nearest 100s around the latest price.', x));
+    }
+    return rows;
+  }
+  function nextLevel(price, dir, levels) {
+    const pool = (levels || []).filter(L => Number.isFinite(L.price) && L.key !== 'structure');
+    const xs = pool.filter(L => dir === 'up' ? L.price > price + 0.5 : L.price < price - 0.5);
+    if (xs.length) {
+      xs.sort((a, b) => dir === 'up' ? a.price - b.price : b.price - a.price);
+      return {price: xs[0].price, label: xs[0].label};
+    }
+    const step = 100;
+    const n = dir === 'up' ? Math.ceil((price + 0.5) / step) * step : Math.floor((price - 0.5) / step) * step;
+    return {price: n, label: 'Round number'};
+  }
+  function hourMove(m5, h1) {
+    const c5 = (m5 || []).filter(c => c.closed);
+    if (c5.length >= 13) {
+      const last = c5[c5.length - 1];
+      const base = c5[c5.length - 13];
+      const pct = Math.abs(last.c - base.c) / base.c;
+      if (pct >= 0.01) return {pct, from: base.c, to: last.c, t: last.t};
+    }
+    const h = (h1 || []).filter(c => c.closed);
+    if (h.length >= 2) {
+      const last = h[h.length - 1], prev = h[h.length - 2];
+      const closePct = Math.abs(last.c - prev.c) / prev.c;
+      const bodyPct = Math.abs(last.c - last.o) / last.o;
+      const pct = Math.max(closePct, bodyPct);
+      if (pct >= 0.01) return {pct, from: bodyPct >= closePct ? last.o : prev.c, to: last.c, t: last.t};
+    }
+    return null;
+  }
+  function sharpBreak(h1, levels) {
+    const closed = (h1 || []).filter(c => c.closed);
+    if (closed.length < 2) return null;
+    const last = closed[closed.length - 1], prev = closed[closed.length - 2];
+    const atr = atrEnding(closed, closed.length - 1);
+    if ((last.h - last.l) < Math.max(1.5 * atr, last.o * 0.004)) return null;
+    const majors = (levels || []).filter(L => Number.isFinite(L.price) && L.key !== 'week');
+    for (const L of majors) {
+      const up = prev.c <= L.price && last.c > L.price && last.c > last.o;
+      const down = prev.c >= L.price && last.c < L.price && last.c < last.o;
+      if (up || down) return {label: L.label, price: L.price, dir: up ? 'up' : 'down'};
+    }
+    return null;
+  }
+  function wordDir(dir) { return dir === 'up' ? 'upward' : 'downward'; }
+  function emptyIcc(note) {
+    const wait = {status: 'not yet', note};
+    return {
+      indication: {status: 'not yet', note: note},
+      correction: {status: 'not yet', note: 'This step waits for a clean indication.'},
+      continuation: {status: 'not yet', note: 'This step waits for a clean pullback.'},
+      structure: null,
+      invalidation: 'No structure point yet, because there is no clean swing.',
+      next: null,
+      direction: null,
+      standAside: 'Stand aside. There is no clean impulsive swing on the 1-hour or 4-hour chart.',
+      calm: ''
+    };
+  }
+  function analyze(input) {
+    const now = input.now || Date.now();
+    const h1 = (input.h1 || []).slice().sort((a, b) => a.t - b.t);
+    const m15 = input.m15 || [];
+    const m5 = input.m5 || [];
+    const meta = input.meta || {};
+    const clock = clockInfo(now);
+    const lastC = h1.length ? h1[h1.length - 1] : null;
+    const price = Number.isFinite(+meta.regularMarketPrice) ? +meta.regularMarketPrice : (lastC ? lastC.c : null);
+    const asOf = Number.isFinite(+meta.regularMarketTime) ? +meta.regularMarketTime * 1000 : (lastC ? lastC.t : now);
+    const change = Number.isFinite(+meta.regularMarketChangePercent) ? +meta.regularMarketChangePercent : null;
+    const levels = buildLevels(h1, now);
+    const base = {
+      price, asOf, asOfText: fmtWhen(asOf),
+      changeText: change == null ? '' : (change > 0 ? '+' : '') + change.toFixed(2) + '%',
+      dayHigh: Number.isFinite(+meta.regularMarketDayHigh) ? +meta.regularMarketDayHigh : null,
+      dayLow: Number.isFinite(+meta.regularMarketDayLow) ? +meta.regularMarketDayLow : null,
+      clock, levels,
+      ltfMissing: !m15.length && !m5.length
+    };
+    if (h1.filter(c => c.closed).length < 20) {
+      const icc = emptyIcc('Not enough 1-hour prices yet to read a swing.');
+      icc.standAside = 'Stand aside. There are not enough 1-hour prices yet.';
+      return Object.assign(base, {icc, watch: quietWatch()});
+    }
+    const lastTime = h1.filter(c => c.closed).slice(-1)[0].t;
+    const h4 = build4h(h1, now);
+    const picked = choose(inspect(h1, '1H', lastTime), inspect(h4, '4H', lastTime));
+    let icc;
+    if (picked.kind === 'none') {
+      const forming = formingPush(h1);
+      if (forming) {
+        icc = emptyIcc('The current 1-hour candle is trading through a prior swing, but it has not closed. It does not count yet.');
+        icc.indication = {status: 'in progress', note: icc.indication.note};
+        icc.standAside = 'Stand aside. The candle that would make a new swing is still open.';
+      } else icc = emptyIcc('No closed 1-hour or 4-hour candle has made a fresh impulsive swing.');
+    } else if (picked.kind === 'conflict') {
+      icc = emptyIcc('The 1-hour and 4-hour charts point different ways, so there is no clean swing.');
+      icc.standAside = 'Stand aside. The 1-hour and 4-hour charts point different ways, so there is no clean swing.';
+    } else if (picked.kind === 'invalid') {
+      const s = picked.item.setup;
+      icc = emptyIcc('A closed candle went through the structure point at ' + fmtPx(s.structure) + ', so that ' + wordDir(s.dir) + ' swing is no longer valid.');
+      icc.invalidation = 'A closed candle already went beyond ' + fmtPx(s.structure) + '.';
+      icc.standAside = 'Stand aside. A closed candle went beyond the structure point, so this swing is no longer valid.';
+    } else {
+      icc = checklist(picked, h1, m15, m5, levels, price, lastTime);
+    }
+    const watch = buildWatch(h1, m5, levels, icc, lastTime);
+    return Object.assign(base, {icc, watch});
+  }
+  function quietWatch() {
+    return {on: false, notes: [], quiet: 'No heads-up. This lights up only for a move of about 1% in under an hour, a sharp break of a major level, or a full checklist that just finished on a closed candle.'};
+  }
+  function checklist(picked, h1, m15, m5, levels, price, lastTime) {
+    const s = picked.item.setup;
+    const closed = picked.item.closed;
+    const corr = correctionOf(closed, s);
+    const both = picked.other && picked.other.setup.dir === s.dir;
+    let indNote = both
+      ? 'Both the 1-hour and the 4-hour charts closed an impulsive candle beyond a prior swing.'
+      : 'Indication is from the ' + (s.tf === '4H' ? '4-hour' : '1-hour') + ' chart. A candle closed beyond the prior swing at ' + fmtWhen(s.breakT) + '.';
+    indNote += ' The move is ' + wordDir(s.dir) + '. The structure point is ' + fmtPx(s.structure) + ', where that push started.';
+    if (both && Math.abs(picked.other.setup.structure - s.structure) >= 1) {
+      indNote += ' The other timeframe\'s structure point is ' + fmtPx(picked.other.setup.structure) + '.';
+    }
+    const indication = {status: 'met', note: indNote};
+    let continuation, standAside = '', calm = '';
+    if (corr.status !== 'met') {
+      continuation = {status: 'not yet', note: 'This step waits for a clean pullback.'};
+      standAside = 'Stand aside. There is no clean pullback.';
+    } else if (!m15.length && !m5.length) {
+      continuation = {status: 'not yet', note: '15-minute and 5-minute prices did not load, so the engulfing step cannot be checked.'};
+      standAside = 'Stand aside. The pullback is in place, but the lower-timeframe prices did not load.';
+    } else {
+      const afterMs = corr.pullT + s.barMs;
+      const a = m15.length ? readSequence(m15, afterMs, s.extreme, s.dir, 15 * 60 * 1000 * 2.5) : {stage: 'none'};
+      const b = m5.length ? readSequence(m5, afterMs, s.extreme, s.dir, 5 * 60 * 1000 * 2.5) : {stage: 'none'};
+      const rank = {none: 0, break: 1, retest: 2, engulf: 3};
+      let win = a, tfName = '15-minute';
+      if (rank[b.stage] > rank[a.stage] || (b.stage === 'engulf' && a.stage === 'engulf' && b.engT > a.engT)) { win = b; tfName = '5-minute'; }
+      if (a.stage === 'engulf' && b.stage === 'engulf') tfName = '15-minute and 5-minute';
+      const levelTxt = fmtPx(s.extreme);
+      if (win.stage === 'engulf') {
+        continuation = {status: 'met', note: 'On the ' + tfName + ' chart, a candle closed through ' + levelTxt + ', price came back to that level, and an engulfing candle closed at ' + fmtWhen(win.engT) + '. A candle that is still open does not count.', engT: win.engT};
+        calm = 'All three steps are met on closed candles. This is a chart read only. It is not a recommendation to trade.';
+      } else if (win.stage === 'retest' && (a.formingEngulf || b.formingEngulf)) {
+        continuation = {status: 'in progress', note: 'The level at ' + levelTxt + ' broke and price came back to it. An engulfing candle is forming on the ' + tfName + ' chart. It does not count until it closes.'};
+        standAside = 'Stand aside. The pullback is in place, but there is no closed engulfing candle after a break and retest yet.';
+      } else if (win.stage === 'retest') {
+        continuation = {status: 'in progress', note: 'The level at ' + levelTxt + ' broke on a closed candle and price came back to it. There is no closed engulfing candle on the 15-minute or 5-minute chart yet.'};
+        standAside = 'Stand aside. The pullback is in place, but there is no closed engulfing candle after a break and retest yet.';
+      } else if (win.stage === 'break' || win.formingBreak || a.formingBreak || b.formingBreak) {
+        continuation = {status: 'in progress', note: win.stage === 'break'
+          ? 'A closed candle broke ' + levelTxt + '. Still waiting for price to come back and retest it, then for an engulfing candle to close.'
+          : 'Price is trading through ' + levelTxt + ' on a candle that is still open. It does not count until that candle closes.'};
+        standAside = 'Stand aside. The pullback is in place, but there is no closed engulfing candle after a break and retest yet.';
+      } else {
+        continuation = {status: 'not yet', note: 'No closed 15-minute or 5-minute candle has broken the impulse level at ' + levelTxt + ' since the pullback.'};
+        standAside = 'Stand aside. The pullback is in place, but there is no closed engulfing candle after a break and retest yet.';
+      }
+    }
+    const next = Number.isFinite(price) ? nextLevel(price, s.dir, levels) : null;
+    let corrNote = corr.note;
+    if (corr.status === 'met') {
+      const sweptLevel = sweepNote(s, corr, levels);
+      if (sweptLevel) corrNote += ' ' + sweptLevel;
+    }
+    return {
+      indication,
+      correction: {status: corr.status, note: corrNote},
+      continuation,
+      structure: s.structure,
+      invalidation: 'A closed candle beyond ' + fmtPx(s.structure) + ' ends this read.',
+      next,
+      direction: s.dir,
+      standAside,
+      calm
+    };
+  }
+  function sweepNote(setup, corr, levels) {
+    const asianLow = (levels || []).find(L => L.label === 'Prior Asian low' && Number.isFinite(L.price));
+    const asianHigh = (levels || []).find(L => L.label === 'Prior Asian high' && Number.isFinite(L.price));
+    if (setup.dir === 'up' && asianLow && corr.pull < asianLow.price && corr.pull > setup.structure) {
+      return 'The pullback also swept the prior Asian low and did not close through the structure point.';
+    }
+    if (setup.dir === 'down' && asianHigh && corr.pull > asianHigh.price && corr.pull < setup.structure) {
+      return 'The pullback also swept the prior Asian high and did not close through the structure point.';
+    }
+    return '';
+  }
+  function buildWatch(h1, m5, levels, icc, lastTime) {
+    const notes = [];
+    const move = hourMove(m5, h1);
+    if (move) notes.push('Price moved ' + (move.pct * 100).toFixed(1) + '% in under an hour, from ' + fmtPx(move.from) + ' to ' + fmtPx(move.to) + '.');
+    const br = sharpBreak(h1, levels);
+    if (br) notes.push('The last closed 1-hour candle broke ' + fmtPx(br.price) + ' (' + br.label.toLowerCase() + ') with a wide range.');
+    if (icc && icc.indication.status === 'met' && icc.correction.status === 'met' && icc.continuation.status === 'met' && Number.isFinite(icc.continuation.engT) && lastTime - icc.continuation.engT <= 3 * 3600 * 1000) {
+      notes.push('The full checklist finished on a closed engulfing candle at ' + fmtWhen(icc.continuation.engT) + ', close to the latest price.');
+    }
+    if (!notes.length) return quietWatch();
+    return {on: true, notes, quiet: ''};
+  }
+
+  return {
+    etParts, etWallToUtc, inAsian, sessionAt, clockInfo, windows, fourHourBucket, build4h,
+    parseCandles, intervalMs, analyze, fmtPx, fmtWhen
+  };
+})();
+/* SETUPS_PURE_END */
+
+const setupState = {tf: '1h', candles: null, analysis: null, at: 0, loading: false, error: '', token: 0};
+const LEVEL_STYLE = {
+  asian: {color: '#f5b942', dash: [5, 4]},
+  session: {color: '#4f8cff', dash: [5, 4]},
+  week: {color: '#e6e9ef', dash: [2, 3]},
+  prevWeek: {color: '#8b94a7', dash: [2, 4]},
+  round: {color: '#6f7a90', dash: [1, 3]},
+  structure: {color: '#ef4444', dash: [6, 3]},
+  next: {color: '#22c55e', dash: [6, 3]}
+};
+const TF_LIMIT = { '1h': 48, '15m': 96, '5m': 84 };
+const SHORT_LABEL = {
+  'Prior Asian high': 'Asian high', 'Prior Asian low': 'Asian low',
+  'Previous session high': 'Prev session high', 'Previous session low': 'Prev session low',
+  'This week high': 'Week high', 'This week low': 'Week low',
+  'Last week high': 'Last week high', 'Last week low': 'Last week low',
+  'Round number': 'Round', 'Structure': 'Structure', 'Next': 'Next'
+};
+const TF_NAME = { '1h': '1-hour', '15m': '15-minute', '5m': '5-minute' };
+
+function showTab(name) {
+  const journal = name !== 'setups';
+  const vj = $('viewJournal'), vs = $('viewSetups'), act = $('journalActions');
+  const tj = $('tabJournal'), ts = $('tabSetups');
+  if (vj) vj.classList.toggle('hidden', !journal);
+  if (vs) vs.classList.toggle('hidden', journal);
+  if (act) act.classList.toggle('hidden', !journal);
+  if (tj) { tj.classList.toggle('on', journal); tj.setAttribute('aria-selected', journal ? 'true' : 'false'); }
+  if (ts) { ts.classList.toggle('on', !journal); ts.setAttribute('aria-selected', journal ? 'false' : 'true'); }
+  const next = journal ? '#journal' : '#setups';
+  try { if (location.hash !== next) history.replaceState(null, '', next); } catch (e) {}
+  if (journal) { try { render(); } catch (e) {} }
+  else { try { setupsShow(); } catch (e) {} }
+}
+function wireSetups() {
+  const j = $('tabJournal'), s = $('tabSetups');
+  if (j) j.addEventListener('click', () => showTab('journal'));
+  if (s) s.addEventListener('click', () => showTab('setups'));
+  for (const [id, tf] of [['tf1h', '1h'], ['tf15', '15m'], ['tf5', '5m']]) {
+    const b = $(id);
+    if (b) b.addEventListener('click', () => setTf(tf));
+  }
+  const r = $('tfRefresh');
+  if (r) r.addEventListener('click', () => loadSetups(true));
+  window.addEventListener('hashchange', () => { try { showTab(location.hash === '#setups' ? 'setups' : 'journal'); } catch (e) {} });
+  setInterval(() => {
+    const v = $('viewSetups');
+    if (!v || v.classList.contains('hidden')) return;
+    if (document.visibilityState === 'hidden') return;
+    loadSetups(false);
+  }, 60000);
+  try { renderAsian(Setups.clockInfo(Date.now())); } catch (e) {}
+}
+function setTf(tf) {
+  setupState.tf = tf;
+  for (const [id, name] of [['tf1h', '1h'], ['tf15', '15m'], ['tf5', '5m']]) {
+    const b = $(id);
+    if (!b) continue;
+    const on = name === tf;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  drawGold();
+  const leg = $('chartLegend');
+  if (leg && setupState.analysis) leg.innerHTML = chartLegendHtml();
+}
+function setupsShow() {
+  renderAsian(Setups.clockInfo(Date.now()));
+  if (!setupState.analysis) loadSetups(false);
+  else {
+    renderSetups();
+    requestAnimationFrame(() => { try { drawGold(); } catch (e) {} });
+  }
+}
+async function fetchChart(interval, range) {
+  const target = 'https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?interval=' + interval + '&range=' + range;
+  const urls = [
+    'https://proxy.cors.dev/' + target,
+    target,
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(target)
+  ];
+  let last;
+  for (const url of urls) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const res = await fetch(url, {cache: 'no-store', signal: ctrl.signal});
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      const parsed = Setups.parseCandles(json, Setups.intervalMs(interval), Date.now());
+      if (!parsed.candles.length) throw new Error('empty');
+      parsed.via = url.indexOf('proxy.cors.dev') >= 0 || url.indexOf('allorigins') >= 0 ? 'relay' : 'direct';
+      return parsed;
+    } catch (e) { last = e; }
+    finally { clearTimeout(timer); }
+  }
+  throw last || new Error('load failed');
+}
+async function fetchChartSafe(interval, range) {
+  try { return await fetchChart(interval, range); }
+  catch (e) { return {candles: [], meta: null, error: true}; }
+}
+async function loadSetups(force) {
+  if (setupState.loading) return;
+  if (!force && setupState.at && Date.now() - setupState.at < 45000 && setupState.analysis) {
+    renderSetups();
+    return;
+  }
+  setupState.loading = true;
+  const token = ++setupState.token;
+  const line = $('pxLine');
+  if (line && !setupState.analysis) line.textContent = 'Loading gold prices…';
+  try {
+    const [h1, m15, m5] = await Promise.all([
+      fetchChartSafe('1h', '1mo'),
+      fetchChartSafe('15m', '5d'),
+      fetchChartSafe('5m', '5d')
+    ]);
+    if (token !== setupState.token) return;
+    if (!h1.candles.length) throw new Error('no 1h');
+    setupState.candles = {'1h': h1.candles, '15m': m15.candles, '5m': m5.candles};
+    setupState.via = h1.via || '';
+    setupState.miss = {m15: !!m15.error, m5: !!m5.error};
+    setupState.analysis = Setups.analyze({now: Date.now(), h1: h1.candles, m15: m15.candles, m5: m5.candles, meta: h1.meta || {}});
+    setupState.at = Date.now();
+    setupState.error = '';
+    renderSetups();
+  } catch (e) {
+    if (token !== setupState.token) return;
+    setupState.error = 'Gold prices did not load. Your journal is untouched. Press Refresh to try again.';
+    if (line && !setupState.analysis) line.textContent = 'Gold prices did not load.';
+    const err = $('chartErr');
+    if (err) err.textContent = setupState.error;
+  } finally {
+    if (token === setupState.token) setupState.loading = false;
+  }
+}
+function renderAsian(clock) {
+  const el = $('asianBanner');
+  if (!el || !clock) return;
+  el.classList.toggle('asian-live', !!clock.asianOpen);
+  el.innerHTML = '<b>' + esc(clock.headline) + '</b><div class="sub" style="margin-top:6px">' + esc(clock.detail) + '</div>';
+}
+function pillHtml(status) {
+  const st = status || 'not yet';
+  const cls = st === 'met' ? 'met' : st === 'in progress' ? 'work' : 'wait';
+  const label = st === 'met' ? 'Met' : st === 'in progress' ? 'In progress' : 'Not yet';
+  return '<span class="pill ' + cls + '">' + label + '</span>';
+}
+function stepHtml(key, title, part) {
+  const st = part && part.status || 'not yet';
+  return '<div class="step" data-step="' + key + '" data-status="' + st + '"><div style="min-width:132px"><b>' + title + '</b>' + pillHtml(st) + '</div><div>' + esc(part && part.note || '') + '</div></div>';
+}
+function renderLevels(levels) {
+  const host = $('levelList');
+  if (!host) return;
+  if (!levels || !levels.length) { host.innerHTML = '<div class="sub">No levels yet.</div>'; return; }
+  host.innerHTML = levels.map(L => '<div class="lv"><div><div>' + esc(L.label) + '</div><div class="sub">' + esc(L.detail || '') + '</div></div><b>' + (L.price == null ? '–' : esc(Setups.fmtPx(L.price))) + '</b></div>').join('');
+}
+function chartLegendHtml() {
+  const a = setupState.analysis;
+  const lines = [
+    'Showing ' + (TF_NAME[setupState.tf] || 'gold') + ' candles. Gold shading is the Asian session.',
+    'Gold lines: prior Asian high and low. Blue: previous session. White: this week. Gray: last week. Dotted: round numbers.',
+    'A dashed candle is still open. Open candles are not used for the checklist.'
+  ];
+  if (a && a.icc && Number.isFinite(a.icc.structure)) lines.push('Red line: structure point ' + Setups.fmtPx(a.icc.structure) + '.');
+  if (a && a.icc && a.icc.next) lines.push('Green line: next key level ' + Setups.fmtPx(a.icc.next.price) + '.');
+  return lines.map(esc).join('<br>');
+}
+function renderSetups() {
+  const a = setupState.analysis;
+  renderAsian(a && a.clock || Setups.clockInfo(Date.now()));
+  const err = $('chartErr');
+  if (err) {
+    const bits = [];
+    if (setupState.error) bits.push(setupState.error);
+    if (setupState.miss && setupState.miss.m15 && setupState.miss.m5) bits.push('15-minute and 5-minute prices did not load.');
+    else if (setupState.miss && setupState.miss.m15) bits.push('15-minute prices did not load. The 5-minute chart is still checked.');
+    else if (setupState.miss && setupState.miss.m5) bits.push('5-minute prices did not load. The 15-minute chart is still checked.');
+    err.textContent = bits.join(' ');
+  }
+  if (!a) return;
+  const line = $('pxLine'), sub = $('pxSub');
+  if (line) line.textContent = Setups.fmtPx(a.price);
+  if (sub) {
+    const bits = ['As of ' + (a.asOfText || '–'), setupState.via === 'relay' ? 'Yahoo Finance GC=F, read through a public relay' : 'Yahoo Finance GC=F', 'can be about 10 minutes delayed'];
+    if (a.changeText) bits.push('Yahoo day change ' + a.changeText);
+    if (a.clock && (a.clock.name === 'Closed' || a.clock.name === 'Break')) bits.push('showing the last saved prices');
+    sub.textContent = bits.join(' · ');
+  }
+  renderLevels(a.levels);
+  const box = $('iccBox');
+  if (box && a.icc) {
+    const next = a.icc.next ? 'Next key level: ' + Setups.fmtPx(a.icc.next.price) + ', ' + a.icc.next.label.toLowerCase() + '.' : 'Next key level: none until the checklist has a direction.';
+    box.innerHTML = stepHtml('indication', '1. Indication', a.icc.indication)
+      + stepHtml('correction', '2. Correction', a.icc.correction)
+      + stepHtml('continuation', '3. Continuation', a.icc.continuation)
+      + '<div class="sub" style="margin-top:8px">' + esc(a.icc.invalidation || '') + '</div>'
+      + '<div class="sub">' + esc(next) + '</div>';
+  }
+  const stand = $('standBox');
+  if (stand && a.icc) {
+    const msg = a.icc.standAside || a.icc.calm || '';
+    stand.textContent = msg;
+    stand.classList.toggle('hidden', !msg);
+  }
+  const watch = $('watchBox');
+  if (watch && a.watch) {
+    const body = a.watch.on
+      ? a.watch.notes.map(n => '<p>' + esc(n) + '</p>').join('')
+      : '<p class="sub">' + esc(a.watch.quiet || '') + '</p>';
+    watch.innerHTML = '<h2>Heads-up</h2>' + body + '<p class="sub">A heads-up is not a trade. This page does not suggest a position size.</p>';
+  }
+  const leg = $('chartLegend');
+  if (leg) leg.innerHTML = chartLegendHtml();
+  drawGold();
+}
+function drawGold() {
+  const canvas = $('goldChart');
+  const candlesAll = setupState.candles && setupState.candles[setupState.tf];
+  if (!canvas || !candlesAll || !candlesAll.length) return;
+  const show = candlesAll.slice(- (TF_LIMIT[setupState.tf] || 72));
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (W < 2 || H < 2) return;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const padL = 8, padR = 68, padT = 16, padB = 28;
+  let lo = Math.min(...show.map(c => c.l)), hi = Math.max(...show.map(c => c.h));
+  const span = (hi - lo) || 1;
+  const cushion = Math.max(span * 0.18, 8);
+  const lastPx = show[show.length - 1].c;
+  const roundBelow = Math.floor((lastPx - 0.05) / 100) * 100;
+  const nearRound = new Set([roundBelow, roundBelow + 100]);
+  const a = setupState.analysis;
+  const marks = [];
+  function nearEnough(price, key) {
+    if (price >= lo - cushion && price <= hi + cushion) return true;
+    if ((key === 'round' || key === 'next') && [...nearRound].some(n => Math.abs(n - price) < 0.2) && Math.abs(price - lastPx) <= 80) return true;
+    return false;
+  }
+  function pushMark(L) {
+    const i = marks.findIndex(m => Math.abs(m.price - L.price) < 0.3);
+    if (i < 0) marks.push(L);
+    else if (L.key === 'structure' || L.key === 'next') marks[i] = L;
+  }
+  if (a && a.levels) {
+    for (const L of a.levels) {
+      if (!Number.isFinite(L.price) || !nearEnough(L.price, L.key)) continue;
+      pushMark(L);
+    }
+  }
+  if (a && a.icc && Number.isFinite(a.icc.structure) && nearEnough(a.icc.structure, 'structure')) {
+    pushMark({key: 'structure', label: 'Structure', price: a.icc.structure});
+  }
+  if (a && a.icc && a.icc.next && Number.isFinite(a.icc.next.price) && nearEnough(a.icc.next.price, 'next')) {
+    pushMark({key: 'next', label: 'Next', price: a.icc.next.price});
+  }
+  for (const L of marks) { lo = Math.min(lo, L.price); hi = Math.max(hi, L.price); }
+  const pad = (hi - lo) * 0.08 || 1;
+  lo -= pad; hi += pad;
+  const sy = v => padT + (hi - v) * (H - padT - padB) / ((hi - lo) || 1);
+  const slot = (W - padL - padR) / show.length;
+  ctx.font = '11px sans-serif';
+  for (let g = 0; g < 4; g++) {
+    const v = lo + (hi - lo) * (g + 1) / 5;
+    const y = sy(v);
+    ctx.strokeStyle = '#283041';
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillStyle = '#8b94a7';
+    ctx.fillText(Setups.fmtPx(v), W - padR + 6, y + 3);
+  }
+  show.forEach((c, i) => {
+    if (!Setups.inAsian(c.t)) return;
+    ctx.fillStyle = 'rgba(245,185,66,0.14)';
+    ctx.fillRect(padL + i * slot, padT, slot, H - padT - padB);
+  });
+  const used = [];
+  function labelY(y) {
+    let yy = y;
+    for (let n = 0; n < 6; n++) {
+      if (!used.some(u => Math.abs(u - yy) < 12)) { used.push(yy); return yy; }
+      yy += 12;
+    }
+    return y;
+  }
+  const seen = new Set();
+  for (const L of marks) {
+    const id = L.key + ':' + Setups.fmtPx(L.price);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const style = LEVEL_STYLE[L.key] || LEVEL_STYLE.round;
+    const y = sy(L.price);
+    if (y < padT || y > H - padB) continue;
+    ctx.save();
+    ctx.strokeStyle = style.color;
+    ctx.setLineDash(style.dash);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.restore();
+    const yy = labelY(y);
+    const text = (SHORT_LABEL[L.label] || L.label) + ' ' + Setups.fmtPx(L.price);
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(15,18,24,0.8)';
+    ctx.fillRect(padL + 4, yy - 9, tw + 6, 13);
+    ctx.fillStyle = style.color;
+    ctx.fillText(text, padL + 7, yy);
+  }
+  show.forEach((c, i) => {
+    const x = padL + (i + 0.5) * slot;
+    const up = c.c >= c.o;
+    const color = up ? '#22c55e' : '#ef4444';
+    ctx.strokeStyle = color;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(x, sy(c.h));
+    ctx.lineTo(x, sy(c.l));
+    ctx.stroke();
+    const y1 = sy(Math.max(c.o, c.c)), y2 = sy(Math.min(c.o, c.c));
+    const bw = Math.max(2, Math.min(slot * 0.66, 14));
+    ctx.fillStyle = color;
+    ctx.fillRect(x - bw / 2, y1, bw, Math.max(1, y2 - y1));
+    if (!c.closed) {
+      ctx.save();
+      ctx.strokeStyle = '#f5b942';
+      ctx.setLineDash([3, 2]);
+      ctx.strokeRect(x - bw / 2 - 1, y1 - 1, bw + 2, Math.max(3, y2 - y1 + 2));
+      ctx.restore();
+    }
+  });
+  const last = show[show.length - 1];
+  if (last) {
+    const y = sy(last.c);
+    ctx.strokeStyle = '#f5b942';
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#8b94a7';
+  const ticks = [0, Math.floor(show.length / 2), show.length - 1];
+  const seenTick = new Set();
+  for (const i of ticks) {
+    if (seenTick.has(i) || !show[i]) continue;
+    seenTick.add(i);
+    const label = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit'}).format(new Date(show[i].t));
+    const x = padL + i * slot;
+    ctx.fillText(label, Math.min(x, W - padR - 70), H - 8);
+  }
+}
+
 function boot(){
   const list=$('list');if(list)list.addEventListener('click',onListClick);
   const nb=$('importNotebook');if(nb)nb.addEventListener('click',importNotebook);
   try{loadStore()}catch(e){store=null;trades=[];savedJournal=false}
   try{seedNotebookIfEmpty()}catch(e){}
   if(!store){const w=$('warn');if(w)w.classList.remove('hidden')}
-  window.addEventListener('resize',()=>{try{drawEq(filtered())}catch(e){}});
+  window.addEventListener('resize',()=>{try{drawEq(filtered())}catch(e){} try{drawGold()}catch(e){}});
   try{refreshFilters();render()}catch(e){
     const host=$('list');
     if(host&&!host.childElementCount)host.innerHTML='<div class="hint">No trades yet. Click <b>+ Add trade</b> to log your first ICC setup. 🚀</div>';
   }
+  try{wireSetups()}catch(e){}
+  if(location.hash==='#setups'){try{showTab('setups')}catch(e){}}
 }
 boot();
 </script></body></html>
