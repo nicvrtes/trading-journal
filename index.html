@@ -22,15 +22,15 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 .bd{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.hidden{display:none}
 </style></head><body>
 <header><h1>📒 ICC <span>Trading Journal</span></h1>
-<div class="row"><button class="pri" onclick="openForm()">+ Add trade</button><button onclick="exportCSV()">Export CSV</button><button onclick="exportJSON()">Export backup (JSON)</button><button onclick="document.getElementById('imp').click()">Import backup</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJSON(this)"></div></header>
+<div class="row"><button class="pri" onclick="openForm()">+ Add trade</button><button onclick="exportCSV()">Export CSV</button><button onclick="exportJSON()">Export backup (JSON)</button><button onclick="document.getElementById('imp').click()">Import backup</button><button id="importNotebook" type="button" title="Adds the gold trades from your notebook. Trades you already saved are kept.">Import notebook trades</button><input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importJSON(this)"></div></header>
 <main><div id="warn" class="card hidden" style="border-color:var(--a);color:var(--a)">Warning: this view blocks saving, so trades will be lost when closed. Open the journal directly in Chrome or Safari, or use Export backup.</div>
 <section class="card hidden" id="formCard"><h2 id="formTitle">New trade</h2>
 <form id="f" onsubmit="saveTrade(event)"><div class="grid">
 <label>Date & time<input type="datetime-local" name="date" required></label>
-<label>Platform / account<select name="platform" onchange="custom(this)"><option>Topstep</option><option>TradeLocker</option><option value="__c">Other…</option></select><input name="platformC" class="hidden" placeholder="Platform name"></label>
+<label>Platform / account<select name="platform" onchange="custom(this)"><option>Topstep</option><option>Topstep O</option><option>Topstep N</option><option>TradeLocker</option><option value="__c">Other…</option></select><input name="platformC" class="hidden" placeholder="Platform name"></label>
 <label>Instrument<select name="instrument" onchange="custom(this)"><option>Gold</option><option>NAS100</option><option value="__c">Other…</option></select><input name="instrumentC" class="hidden" placeholder="e.g. MGC, MNQ, EURUSD"></label>
-<label>Direction<select name="direction"><option value="Long">Long (buy)</option><option value="Short">Short (sell)</option></select></label>
-<label>Session<select name="session"><option>Asian</option><option>London</option><option>NY</option></select></label>
+<label>Direction<select name="direction"><option value="Long">Long (buy)</option><option value="Short">Short (sell)</option><option value="Unknown">Unknown</option></select></label>
+<label>Session<select name="session"><option>Asian</option><option>London</option><option>NY</option><option value="">Not recorded</option></select></label>
 <label>Entry price<input type="number" step="any" name="entry"></label>
 <label>Stop loss<input type="number" step="any" name="sl"></label>
 <label>Take profit<input type="number" step="any" name="tp"></label>
@@ -48,18 +48,18 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 <section class="card"><h2>Filters</h2><div class="grid">
 <label>Platform<select id="fPlat" onchange="render()"></select></label>
 <label>Instrument<select id="fInst" onchange="render()"></select></label>
-<label>Direction<select id="fDir" onchange="render()"><option value="">All</option><option>Long</option><option>Short</option></select></label>
+<label>Direction<select id="fDir" onchange="render()"><option value="">All</option><option>Long</option><option>Short</option><option>Unknown</option></select></label>
 <label>From<input type="date" id="fFrom" onchange="render()"></label><label>To<input type="date" id="fTo" onchange="render()"></label>
 <label>&nbsp;<button type="button" onclick="clearF()">Clear filters</button></label></div></section>
 
 <section class="card"><h2>Stats</h2><div class="stats" id="stats"></div></section>
 <section class="card"><h2>Equity curve (running P/L in $)</h2><canvas id="eq"></canvas><div id="eqHint" class="hint hidden">Your equity curve will appear once you log trades with a $ result.</div></section>
 <section class="bd"><div class="card"><h2>By platform</h2><div id="bPlat"></div></div><div class="card"><h2>By instrument</h2><div id="bInst"></div></div><div class="card"><h2>By session</h2><div id="bSess"></div></div></section>
-<section class="card"><h2>Trades</h2><div class="scroll" id="list"></div></section>
+<section class="card"><h2>Trades</h2><p style="color:var(--mut);font-size:13px;margin:0 0 10px">Notebook gold trades show up on their own the first time this browser has no saved journal. If you already have trades, <b>Import notebook trades</b> adds the missing ones and leaves yours in place.</p><div class="scroll" id="list"></div></section>
 </main>
 <script>
 const KEY='iccJournal.v1';
-let store=null,trades=[],editId=null;
+let store=null,trades=[],editId=null,savedJournal=false;
 
 function $(id){return document.getElementById(id)}
 function F(){return $('f')}
@@ -85,6 +85,7 @@ function loadStore(){
   try{store=window.localStorage;store.getItem(KEY)}catch(e){store=null}
   let raw=null;
   try{raw=store?store.getItem(KEY):null}catch(e){store=null;raw=null}
+  savedJournal=!!(store&&raw!==null);
   try{
     const parsed=JSON.parse(raw||'[]');
     trades=Array.isArray(parsed)?parsed.map(cleanTrade).filter(Boolean):[];
@@ -124,7 +125,10 @@ function openForm(t){
   const title=$('formTitle');if(title)title.textContent=t?'Edit trade':'New trade';
   if(t){
     for(const k of['date','direction','session','entry','sl','tp','exit','size','unit','pnl','r','shot','notes','emo']){
-      if(form[k])form[k].value=t[k]??'';
+      if(!form[k])continue;
+      let val=t[k]??'';
+      if(k==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(val)))val=val+'T00:00';
+      form[k].value=val;
     }
     form.i1.checked=!!t.i1;form.i2.checked=!!t.i2;form.i3.checked=!!t.i3;
     setSel('platform',t.platform);setSel('instrument',t.instrument);
@@ -287,9 +291,76 @@ function importJSON(inp){
     trades=next;persist();refreshFilters();render();
   }).catch(()=>{alert('That file is not a valid journal backup.')}).finally(()=>{inp.value=''});
 }
+// Gold trades copied from the handwritten notebook. Ids stay fixed so import can merge.
+const NOTEBOOK_TRADES=[
+  {id:'notebook-2025-11-25',date:'2025-11-25',platform:'Topstep',instrument:'Gold',direction:'Long',entry:4186,exit:4191,pnl:900,
+    notes:'About 15 min. Casual day entry. Clock time was not written down. P/L is approximate (~+$900). Notebook says likely long; price rose and the trade made money, so direction is Long.',
+    emo:'If I had held a little longer.'},
+  {id:'notebook-2025-11-27',date:'2025-11-27',platform:'Topstep',instrument:'Gold',direction:'Long',entry:4189,exit:4195,pnl:1220,
+    notes:'1 hr 20 min. Thanksgiving. Waiting for 195; market fluctuating. Clock time was not written down. Traded after the Intocable concert the night before. Notebook says likely long; price rose and the trade made money, so direction is Long.'},
+  {id:'notebook-2026-03-25-2153',date:'2026-03-25T21:53',platform:'Topstep',instrument:'Gold',direction:'Short',entry:4511.4,exit:4509.4,pnl:400,
+    notes:'Hit take profit (+$400). Entry clock time written as 21:53. Duration was not written down. Notebook says likely short; price fell and the trade made money, so direction is Short.',
+    emo:'Nervous on the short. Passed the evals.'},
+  {id:'notebook-2026-03-31-0830',date:'2026-03-31T08:30',platform:'Topstep',instrument:'Gold',direction:'Long',entry:4615.6,exit:4610.1,pnl:-553,
+    notes:'7 min 35 sec. 5m was consolidating; thought it would push up. Notebook says likely long (a loss); price fell and the trade lost money, so direction is Long.',
+    emo:'FOMO, rushed.'},
+  {id:'notebook-2026-03-31-1911',date:'2026-03-31T19:11',platform:'Topstep',instrument:'Gold',direction:'Long',entry:4726.4,exit:4727.8,pnl:153.80,
+    notes:'1 min 30 sec. Fear-exited; take profit was $1,200. Messy: fear exit about $300, then a re-entry lost about $300. Logged as the one fill written down (4726.4 to 4727.8). Notebook says likely long; price rose and this fill made money, so direction is Long.',
+    emo:'Fear exit.'},
+  {id:'notebook-2026-04-07-1740',date:'2026-04-07T17:40',platform:'Topstep',instrument:'Gold',direction:'Long',session:'Asian',entry:4803.6,exit:4823.6,pnl:1673.52,i1:true,i2:false,i3:true,
+    notes:'34 min 55 sec. Asia session, entry clock time 17:40. ICC indication, then caught the continuation. Correction step was not written down.',
+    emo:'Calm, patient.'},
+  {id:'notebook-2026-04-08-1829',date:'2026-04-08T18:29',platform:'Topstep',instrument:'Gold',direction:'Unknown',session:'Asian',entry:4731.1,exit:4734.0,pnl:-1369.72,
+    notes:'1 hr 30 min. Asia session, entry clock time 18:29. Entered early. Buyers were strong in a downtrend. Direction left Unknown: the notebook says likely short or a bad long day. Price rose while the day lost money, which can fit a short, but the re-entry makes it unsure.',
+    emo:'Greed on the re-entry.'},
+  {id:'notebook-2026-04-13-a',date:'2026-04-13',platform:'Topstep',instrument:'Gold',direction:'Long',session:'Asian',entry:4776.4,exit:4783.8,pnl:735.76,
+    notes:'15 min 52 sec. Asia session. Clock time was not written down. Account was written as O/N?, so the account letter is not stored. Won both accounts that day.',
+    emo:'Slightly anxious, on the phone at mom\'s. Impatient, got out early, but take profit was hit.'},
+  {id:'notebook-2026-04-13-b',date:'2026-04-13',platform:'Topstep',instrument:'Gold',direction:'Long',session:'Asian',entry:4788.1,exit:4792,pnl:671.52,
+    notes:'12 min 20 sec. Asia session. Clock time was not written down. Second gold trade that day. Account letter was not written down. Won both accounts.',
+    emo:'Slightly anxious, impatient, got out early, but take profit was hit.'},
+  {id:'notebook-2026-04-14-o',date:'2026-04-14',platform:'Topstep O',instrument:'Gold',direction:'Long',entry:4873.2,exit:4893.5,pnl:851.52,i1:true,i2:true,i3:true,
+    notes:'Account O. 2 min 47 sec. +2030 pts = $851.52. Clock time was not written down. The page lists account ids 0627 and 6883, not matched here to O or N. ICC: indication, correction, continuation. Set a marker and waited.',
+    emo:'Calm, confident, clear-minded.'},
+  {id:'notebook-2026-04-14-n',date:'2026-04-14',platform:'Topstep N',instrument:'Gold',direction:'Long',entry:4874.6,exit:4893.5,pnl:287.28,i1:true,i2:true,i3:true,
+    notes:'Account N. 2 min 31 sec. +1890 pts = $287.28. Clock time was not written down. The page lists account ids 0627 and 6883, not matched here to O or N. ICC: indication, correction, continuation. Set a marker and waited.',
+    emo:'Calm, confident, clear-minded.'},
+  {id:'notebook-2026-04-16-o',date:'2026-04-16',platform:'Topstep O',instrument:'Gold',direction:'Short',session:'Asian',entry:4803.2,exit:4790.8,pnl:891.52,
+    notes:'Account O. 2 min. Asia session. +1240 pts = $891.52. Winning short.',
+    emo:'Confident, then scared on the reverse into negatives; held.'},
+  {id:'notebook-2026-04-16-n',date:'2026-04-16',platform:'Topstep N',instrument:'Gold',direction:'Short',session:'Asian',entry:4800.5,exit:4789.3,pnl:851,
+    notes:'Account N. 2 min. Asia session. +1120 pts = $851. Marked PROFIT FOR DAY. Winning short.',
+    emo:'Confident, then scared on the reverse into negatives; held.'},
+  {id:'notebook-2026-04-16-loss-a',date:'2026-04-16',platform:'Topstep',instrument:'Gold',direction:'Short',session:'Asian',entry:4808.5,exit:4811.9,pnl:-344,
+    notes:'23 min. Asia session. Short into a consolidating market. Account (O or N) was not written on this fill.',
+    emo:'Nervous, rushed entry.'},
+  {id:'notebook-2026-04-16-loss-b',date:'2026-04-16',platform:'Topstep',instrument:'Gold',direction:'Short',session:'Asian',entry:4809.5,exit:4812.1,pnl:-260,
+    notes:'23 min. Asia session. Short into a consolidating market. Account (O or N) was not written on this fill.',
+    emo:'Nervous, rushed entry.'}
+];
+function notebookTrades(){return NOTEBOOK_TRADES.map(cleanTrade).filter(Boolean)}
+function seedNotebookIfEmpty(){
+  // A saved key, even an empty list, means this browser already has a journal. Do not refill it.
+  if(trades.length||savedJournal)return;
+  trades=notebookTrades();
+  persist();
+}
+function importNotebook(){
+  const incoming=notebookTrades();
+  const have=new Set();
+  for(const t of trades){if(isTrade(t)&&t.id!=null)have.add(String(t.id))}
+  const add=incoming.filter(t=>!have.has(String(t.id)));
+  if(!add.length){alert('Your notebook trades are already in this journal.');return}
+  if(!confirm('Add '+add.length+' gold trades from your notebook?\n\nTrades you already saved stay put. This will not add the same notebook trade twice.'))return;
+  for(const t of add)trades.push(t);
+  persist();refreshFilters();render();
+  alert('Added '+add.length+' gold trades from your notebook. Anything you had already saved is still here.');
+}
 function boot(){
   const list=$('list');if(list)list.addEventListener('click',onListClick);
-  try{loadStore()}catch(e){store=null;trades=[]}
+  const nb=$('importNotebook');if(nb)nb.addEventListener('click',importNotebook);
+  try{loadStore()}catch(e){store=null;trades=[];savedJournal=false}
+  try{seedNotebookIfEmpty()}catch(e){}
   if(!store){const w=$('warn');if(w)w.classList.remove('hidden')}
   window.addEventListener('resize',()=>{try{drawEq(filtered())}catch(e){}});
   try{refreshFilters();render()}catch(e){
