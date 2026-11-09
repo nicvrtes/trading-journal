@@ -40,6 +40,22 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 .sub{color:var(--mut);font-size:13px;line-height:1.45}
 .stand{border-color:var(--a);font-size:16px;line-height:1.45}
 #pxLine{font-size:28px;font-weight:750;margin:6px 0 2px;letter-spacing:.2px}
+.ares-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.ares-px{font-size:22px;font-weight:750;margin:2px 0 0;letter-spacing:.2px}
+.ares-item{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;background:#11151e}
+.ares-item.example{border-style:dashed}
+.badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650}
+.badge.setup{background:#1a2744;color:#8eb6ff}
+.badge.move{background:#3a2e12;color:var(--a)}
+.badge.update{background:#232b3a;color:var(--mut)}
+.badge.example{background:#2a220f;color:var(--a)}
+.badge.taken{background:#14301f;color:var(--g)}
+.badge.skipped{background:#232b3a;color:var(--mut)}
+.chip{display:inline-flex;gap:6px;align-items:center;margin:8px 10px 0 0;font-size:13px;color:var(--txt)}
+.ares-actions{margin-top:8px;font-size:13px;color:var(--mut)}
+button.linkish{background:none;border:0;padding:0 2px;color:var(--b);font-size:13px;text-decoration:underline;border-radius:0}
+button.linkish.on{color:var(--g);font-weight:650}
+button.linkish:hover{filter:none}
 </style></head><body>
 <header>
 <div class="brand"><h1>📒 ICC <span>Trading Journal</span></h1>
@@ -84,6 +100,16 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px;borde
 </div>
 <div id="viewSetups" class="hidden" role="tabpanel" aria-labelledby="tabSetups">
 <section class="card disc"><b>Analysis only, not trading advice.</b> This tab studies the gold chart. It does not tell you to buy or sell, and it never suggests how large a position to take or what percent of an account to risk. Prices can be about 10 minutes behind the real market. All times are Eastern Time.</section>
+<section class="card" id="aresCard" aria-labelledby="aresTitle">
+<div class="ares-head">
+<div><h2 id="aresTitle" style="margin:0">Ares says</h2><div id="aresSub" class="sub" style="margin-top:4px">Loading notes…</div></div>
+<div class="row" role="group" aria-label="Filter Ares notes">
+<button type="button" class="tab on" id="aresAll" aria-pressed="true">All</button>
+<button type="button" class="tab" id="aresSetups" aria-pressed="false">Setups</button>
+<button type="button" class="tab" id="aresMoves" aria-pressed="false">Big moves</button>
+</div></div>
+<div id="aresFeed"></div>
+</section>
 <section class="card" id="asianBanner"></section>
 <section class="card">
 <div class="row" style="justify-content:space-between;align-items:flex-start">
@@ -1094,7 +1120,7 @@ function showTab(name) {
   if (ts) { ts.classList.toggle('on', !journal); ts.setAttribute('aria-selected', journal ? 'false' : 'true'); }
   const next = journal ? '#journal' : '#setups';
   try { if (location.hash !== next) history.replaceState(null, '', next); } catch (e) {}
-  if (journal) { try { render(); } catch (e) {} }
+  if (journal) { try { render(); } catch (e) {} try { aresPause(); } catch (e) {} }
   else { try { setupsShow(); } catch (e) {} }
 }
 function wireSetups() {
@@ -1107,6 +1133,19 @@ function wireSetups() {
   }
   const r = $('tfRefresh');
   if (r) r.addEventListener('click', () => loadSetups(true));
+  const feed = $('aresFeed');
+  if (feed) feed.addEventListener('click', onAresClick);
+  for (const [id, name] of [['aresAll', 'all'], ['aresSetups', 'setup'], ['aresMoves', 'move']]) {
+    const b = $(id);
+    if (b) b.addEventListener('click', () => setAresFilter(name));
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const v = $('viewSetups');
+    if (!v || v.classList.contains('hidden')) return;
+    if (aresState.at && Date.now() - aresState.at < 15000) return;
+    try { aresLoad(); } catch (e) {}
+  });
   window.addEventListener('hashchange', () => { try { showTab(location.hash === '#setups' ? 'setups' : 'journal'); } catch (e) {} });
   setInterval(() => {
     const v = $('viewSetups');
@@ -1131,6 +1170,7 @@ function setTf(tf) {
 }
 function setupsShow() {
   renderAsian(Setups.clockInfo(Date.now()));
+  try { aresStart(); } catch (e) {}
   if (!setupState.analysis) loadSetups(false);
   else {
     renderSetups();
@@ -1424,6 +1464,238 @@ function drawGold() {
     const x = padL + i * slot;
     ctx.fillText(label, Math.min(x, W - padR - 70), H - 8);
   }
+}
+
+const ARES_LOG_KEY = 'iccJournal.aresLog.v1';
+const ARES_MS = 120000;
+const aresState = {entries: [], updated: '', error: '', filter: 'all', loaded: false, token: 0, timer: null, at: 0, log: null};
+
+function aresLog() {
+  if (aresState.log) return aresState.log;
+  aresState.log = {};
+  try {
+    const raw = store ? store.getItem(ARES_LOG_KEY) : null;
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [k, v] of Object.entries(parsed)) {
+        if (v === 'taken' || v === 'skipped') aresState.log[String(k)] = v;
+      }
+    }
+  } catch (e) {}
+  return aresState.log;
+}
+function saveAresLog() {
+  if (!store) return;
+  try { store.setItem(ARES_LOG_KEY, JSON.stringify(aresState.log || {})); } catch (e) {}
+}
+function aresStep(v) { return v === 'met' || v === 'in_progress' || v === 'not_yet' ? v : 'not_yet'; }
+function cleanAres(e) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const id = e.id == null ? '' : String(e.id).trim();
+  if (!id) return null;
+  const icc = e.icc && typeof e.icc === 'object' ? e.icc : {};
+  const levels = Array.isArray(e.levels) ? e.levels.map(L => {
+    if (!L || typeof L !== 'object') return null;
+    const price = asNum(L.price);
+    if (price == null) return null;
+    return {label: String(L.label || 'Level'), price};
+  }).filter(Boolean) : [];
+  const kind = e.kind === 'setup' || e.kind === 'big_move' || e.kind === 'update' ? e.kind : 'update';
+  const market = e.market === 'NAS100' || e.market === 'gold' ? e.market : '';
+  return {
+    id,
+    time_et: e.time_et == null ? '' : String(e.time_et),
+    time_iso: e.time_iso == null ? '' : String(e.time_iso),
+    market,
+    symbol: e.symbol == null ? '' : String(e.symbol),
+    price: asNum(e.price),
+    kind,
+    icc: {indication: aresStep(icc.indication), correction: aresStep(icc.correction), continuation: aresStep(icc.continuation)},
+    levels,
+    direction: e.direction === 'long' || e.direction === 'short' ? e.direction : null,
+    invalidation: asNum(e.invalidation),
+    target: asNum(e.target),
+    note: e.note == null ? '' : String(e.note),
+    source: e.source == null || e.source === '' ? 'Ares' : String(e.source)
+  };
+}
+function aresIsExample(e) {
+  return /not a real setup/i.test(e.note || '') || /^example(?:-|$)/i.test(e.id || '');
+}
+function aresSorted(entries) {
+  return entries.map((e, i) => ({e, i})).sort((a, b) => {
+    const ta = Date.parse(a.e.time_iso || ''), tb = Date.parse(b.e.time_iso || '');
+    const aOk = Number.isFinite(ta), bOk = Number.isFinite(tb);
+    if (aOk && bOk && ta !== tb) return tb - ta;
+    if (aOk !== bOk) return aOk ? -1 : 1;
+    return b.i - a.i;
+  }).map(x => x.e);
+}
+function fmtAresPx(n) {
+  if (n == null || !Number.isFinite(n)) return '–';
+  return n.toLocaleString('en-US', {maximumFractionDigits: 2});
+}
+function fmtAresUpdated(iso) {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return iso || '';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+  }).format(new Date(t));
+}
+function aresKindMeta(kind) {
+  if (kind === 'big_move') return {cls: 'move', label: 'Big move'};
+  if (kind === 'update') return {cls: 'update', label: 'Update'};
+  if (kind === 'setup') return {cls: 'setup', label: 'Setup'};
+  return {cls: 'update', label: 'Note'};
+}
+function aresIccChip(label, status) {
+  const st = status === 'met' ? 'met' : status === 'in_progress' ? 'in progress' : 'not yet';
+  return '<span class="chip">' + esc(label) + ' ' + pillHtml(st) + '</span>';
+}
+function aresVisible() {
+  const f = aresState.filter;
+  return aresState.entries.filter(e => {
+    if (f === 'setup') return e.kind === 'setup';
+    if (f === 'move') return e.kind === 'big_move';
+    return true;
+  });
+}
+function setAresFilter(name) {
+  aresState.filter = name === 'setup' || name === 'move' ? name : 'all';
+  for (const [id, key] of [['aresAll', 'all'], ['aresSetups', 'setup'], ['aresMoves', 'move']]) {
+    const b = $(id);
+    if (!b) continue;
+    const on = key === aresState.filter;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  renderAres();
+}
+function aresItemHtml(e) {
+  const example = aresIsExample(e);
+  const kind = aresKindMeta(e.kind);
+  const mark = aresLog()[e.id] || '';
+  const when = e.time_et || fmtAresUpdated(e.time_iso) || 'Time not set';
+  const market = e.market === 'NAS100' ? 'NAS100' : e.market === 'gold' ? 'Gold' : '';
+  const where = [market, e.symbol].filter(Boolean).join(' · ');
+  const badges = (example ? '<span class="badge example">Example</span> ' : '')
+    + '<span class="badge ' + kind.cls + '">' + esc(kind.label) + '</span>'
+    + (mark === 'taken' ? ' <span class="badge taken">Taken</span>' : '')
+    + (mark === 'skipped' ? ' <span class="badge skipped">Skipped</span>' : '');
+  const levels = e.levels.length
+    ? e.levels.map(L => '<div class="lv"><div>' + esc(L.label) + '</div><b>' + esc(fmtAresPx(L.price)) + '</b></div>').join('')
+    : '';
+  const extras = [];
+  if (e.direction) extras.push(e.direction === 'short' ? 'Short' : 'Long');
+  if (e.invalidation != null) extras.push('Invalidation ' + fmtAresPx(e.invalidation));
+  if (e.target != null) extras.push('Target ' + fmtAresPx(e.target));
+  const logLine = '<div class="ares-actions">Your log: '
+    + '<button type="button" class="linkish' + (mark === 'taken' ? ' on' : '') + '" data-ares-act="taken" data-ares-id="' + esc(e.id) + '">Taken</button>'
+    + ' · <button type="button" class="linkish' + (mark === 'skipped' ? ' on' : '') + '" data-ares-act="skipped" data-ares-id="' + esc(e.id) + '">Skipped</button>'
+    + (mark ? ' · <button type="button" class="linkish" data-ares-act="clear" data-ares-id="' + esc(e.id) + '">Clear</button>' : '')
+    + '</div>';
+  return '<article class="ares-item' + (example ? ' example' : '') + '" data-id="' + esc(e.id) + '">'
+    + '<div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="sub">' + esc(when) + (where ? ' · ' + esc(where) : '') + '</div>'
+    + '<div class="ares-px">' + esc(fmtAresPx(e.price)) + '</div></div><div class="row">' + badges + '</div></div>'
+    + (extras.length ? '<div class="sub" style="margin-top:4px">' + esc(extras.join(' · ')) + '</div>' : '')
+    + '<div>' + aresIccChip('Indication', e.icc.indication) + aresIccChip('Correction', e.icc.correction) + aresIccChip('Continuation', e.icc.continuation) + '</div>'
+    + levels
+    + (e.note ? '<p style="margin:10px 0 0">' + esc(e.note) + '</p>' : '')
+    + '<div class="sub" style="margin-top:6px">Source: ' + esc(e.source || 'Ares') + '</div>'
+    + logLine
+    + '</article>';
+}
+function renderAres() {
+  const sub = $('aresSub'), host = $('aresFeed');
+  if (!host) return;
+  const log = aresLog();
+  const ids = new Set(aresState.entries.map(e => e.id));
+  let taken = 0, skipped = 0;
+  for (const [id, v] of Object.entries(log)) {
+    if (!ids.has(id)) continue;
+    if (v === 'taken') taken++;
+    else if (v === 'skipped') skipped++;
+  }
+  const logBit = (taken || skipped) ? ' Your log on this browser: ' + taken + ' taken, ' + skipped + ' skipped.' : '';
+  if (sub) {
+    if (aresState.error && !aresState.loaded) sub.textContent = 'Notes will show here when they load.';
+    else if (aresState.loaded) {
+      const when = aresState.updated ? 'File updated ' + fmtAresUpdated(aresState.updated) + '. ' : '';
+      sub.textContent = when + 'Checks for new notes every 2 minutes while this tab is open.' + logBit;
+    } else sub.textContent = 'Loading notes…';
+  }
+  if (aresState.error && !aresState.loaded) {
+    host.innerHTML = '<div class="hint">' + esc(aresState.error) + '</div>';
+    return;
+  }
+  if (!aresState.loaded) {
+    host.innerHTML = '<div class="hint">Loading notes from Ares…</div>';
+    return;
+  }
+  const rows = aresVisible();
+  const stale = aresState.error ? '<div class="sub" style="margin-top:8px">' + esc(aresState.error) + '</div>' : '';
+  if (!aresState.entries.length) {
+    host.innerHTML = stale + '<div class="hint">No notes from Ares yet. When a new note is added, it will show up here.</div>';
+    return;
+  }
+  if (!rows.length) {
+    const which = aresState.filter === 'move' ? 'big moves' : 'setups';
+    host.innerHTML = stale + '<div class="hint">No ' + which + ' in this list yet. Choose All to see every note.</div>';
+    return;
+  }
+  host.innerHTML = stale + rows.map(aresItemHtml).join('');
+}
+function onAresClick(ev) {
+  const btn = ev.target && ev.target.closest ? ev.target.closest('button[data-ares-act]') : null;
+  if (!btn) return;
+  const id = btn.getAttribute('data-ares-id');
+  const act = btn.getAttribute('data-ares-act');
+  if (!id || (act !== 'taken' && act !== 'skipped' && act !== 'clear')) return;
+  const log = aresLog();
+  if (act === 'clear' || log[id] === act) delete log[id];
+  else log[id] = act;
+  saveAresLog();
+  renderAres();
+}
+async function aresLoad() {
+  const token = ++aresState.token;
+  try {
+    const url = new URL('data/setups.json', document.baseURI);
+    url.searchParams.set('t', String(Date.now()));
+    const res = await fetch(url.href, {cache: 'no-store'});
+    if (!res.ok) throw new Error('bad status');
+    const json = await res.json();
+    if (token !== aresState.token) return;
+    if (!json || typeof json !== 'object' || !Array.isArray(json.entries)) throw new Error('shape');
+    aresState.entries = aresSorted(json.entries.map(cleanAres).filter(Boolean));
+    aresState.updated = json.updated == null ? '' : String(json.updated);
+    aresState.error = '';
+    aresState.loaded = true;
+  } catch (e) {
+    if (token !== aresState.token) return;
+    aresState.error = aresState.loaded
+      ? 'Could not refresh just now. Showing the last notes that loaded.'
+      : 'Ares notes could not be loaded. The gold chart and your journal still work. This page will try again in a couple of minutes.';
+  }
+  aresState.at = Date.now();
+  try { renderAres(); } catch (e) {}
+}
+function aresTick() {
+  const v = $('viewSetups');
+  if (!v || v.classList.contains('hidden')) return;
+  if (document.visibilityState === 'hidden') return;
+  aresLoad();
+}
+function aresStart() {
+  aresLoad();
+  if (aresState.timer) return;
+  aresState.timer = setInterval(aresTick, ARES_MS);
+}
+function aresPause() {
+  if (!aresState.timer) return;
+  clearInterval(aresState.timer);
+  aresState.timer = null;
 }
 
 function boot(){
