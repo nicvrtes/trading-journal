@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "updated": "2026-11-09T20:15:00-05:00",
+  "entries": [
+    {
+      "id": "example-not-a-real-setup",
+      "time_et": "2026-11-09 20:15 ET",
+      "time_iso": "2026-11-09T20:15:00-05:00",
+      "market": "gold",
+      "symbol": "GC=F",
+      "price": 4000,
+      "kind": "setup",
+      "icc": {
+        "indication": "met",
+        "correction": "in_progress",
+        "continuation": "not_yet"
+      },
+      "levels": [
+        {"label": "Example high", "price": 4020},
+        {"label": "Example low", "price": 3980}
+      ],
+      "direction": "long",
+      "invalidation": 3960,
+      "target": 4060,
+      "note": "Example entry — not a real setup",
+      "source": "Ares"
+    }
+  ]
+}
